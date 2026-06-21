@@ -180,12 +180,35 @@ T4 (Google Colab free tier, CUDA 12.8). `amp_verify_matmul` passes all 4
 tile configs with the *same* `max_rel_err≈0.00006` as the MI300X run —
 the FP32 GEMM kernel is numerically identical across both vendors, not
 just "compiles on both." `amp_parity_dump` also ran successfully,
-producing `cuda_dump.json` (per-tile GFLOPS + actual output tensors) —
-the input `scripts/parity_check.py` needs for an automated cross-vendor
-diff; pairing it with a `hip_dump.json` run on MI300X is the next step.
+producing `cuda_dump.json` (per-tile GFLOPS + actual output tensors).
 cuBLASLt (the CUDA vendor-GEMM backend) also ran cleanly (6043 GFLOPS,
 1024×1024×512 FP32) with no fixes needed — unlike its rocBLAS HIP
 counterpart, which needed the operand-swap fix in #7 above.
+
+### Cross-vendor parity check (this is the actual product)
+
+With `cuda_dump.json` (T4) and a matching `hip_dump.json` (MI300X, same
+seed/shapes), `scripts/parity_check.py` ran its full diff for the first
+time — not a synthetic example, real GPU outputs from two different
+vendors:
+
+```
+Cross-vendor parity: nvidia (A) vs amd (B)
+Shape: M=96 N=96 K=96  seed=42
+
+tile             A GFLOPS   B GFLOPS  B/A ratio  max_rel_err  status
+(16,16,16)          183.5      329.6      1.80x     0.000069  PASS
+(32,16,16)          154.5      287.0      1.86x     0.000069  PASS
+(32,32,16)          113.5      235.3      2.07x     0.000069  PASS
+(32,32,32)          133.0      267.1      2.01x     0.000044  PASS
+
+ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
+```
+
+This is the core thing AMP is supposed to prove — that a CUDA kernel and
+its HIP port produce the same numbers, with an actual speed ratio
+alongside the diff — and it now works end to end on real hardware from
+both vendors, no synthetic/mocked data anywhere in the pipeline.
 
 ## What's still being built
 
