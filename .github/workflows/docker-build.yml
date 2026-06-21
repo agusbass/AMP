@@ -1,0 +1,26 @@
+name: Docker build (no GPU required)
+
+# Validates that the hackathon-required container actually builds against
+# the real rocm/rocm:6.3.2-complete image -- compiling HIP device code
+# doesn't need a GPU, only running it does (the Dockerfile's test_triple
+# step already tolerates that and is expected to report no GPU here).
+on:
+  push:
+    paths:
+      - Dockerfile
+      - CMakeLists.txt
+      - 'include/**'
+      - 'src/**'
+      - 'kernels/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - .github/workflows/docker-build.yml
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker build
+        run: docker build -t amp:ci .
