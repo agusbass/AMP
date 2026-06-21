@@ -48,6 +48,47 @@ via `scripts/parity_check.py` — whether your library was built with
 `nvcc` or `hipcc`. The validator itself links against neither CUDA nor
 HIP; it only `dlopen()`s your library, so it's one tool for both sides.
 
+```
+  Your CUDA kernel              Your HIP kernel
+  (already have it)             (e.g. via HIPIFY)
+        |                              |
+        v                              v
+   1 wrapper fn               1 wrapper fn
+   (amp_plugin.h --           (amp_plugin.h --
+    or generate one:           or generate one:
+    amp_generate_wrapper.py)   amp_generate_wrapper.py)
+        |                              |
+        v                              v
+  nvcc -shared -o *.so         hipcc -shared -o *.so
+        |                              |
+        v                              v
+   amp_validate_kernel           amp_validate_kernel
+   (vs CPU reference)            (vs CPU reference)
+        |                              |
+        v                              v
+   cuda_dump.json                hip_dump.json
+        \_____________   _____________/
+                      \ /
+          scripts/parity_check.py
+        (cross-vendor diff + GFLOPS ratio)
+                       |
+              +--------+--------+
+              |                 |
+            PASS          FAIL --analyze
+              |                 |
+          ship it      amp_diagnose.py (static, no GPU)
+                              |
+                              v
+                     amp_suggest_fix.py
+                  (mechanical patch, you confirm)
+```
+
+Don't want to hand-write the wrapper's device malloc/copy/launch/free
+boilerplate? `scripts/amp_generate_wrapper.py <your_kernel_name>`
+generates it for you, with two `TODO`s left to fill in (point at your
+real kernel, set its launch config) — see `--help` for block-size and
+shape options.
+
 ```bash
 # Your kernel, wrapped per include/amp_plugin.h (see
 # examples/user_plugin_example.cu for a complete, runnable version):

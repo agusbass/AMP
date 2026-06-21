@@ -35,5 +35,10 @@ RUN bash scripts/build_auto.sh
 # Verify build
 RUN cd build && echo "=== Test Triple ===" && ./test_triple || echo "Test finished (GPU may not be available at build time)"
 
-# Default command: run benchmarks
-CMD ["/bin/bash", "-c", "cd /opt/amp/build && echo 'AMP — AMD Migration Platform ready!' && ls -la"]
+# Default command: an instant, no-setup proof it works, using AMP's own
+# bundled reference kernel (no GPU upload, no kernel of your own needed
+# yet) -- numerical correctness vs CPU reference in well under 60s on a
+# real AMD GPU (`docker run --device=/dev/kfd --device=/dev/dri ...`).
+# To validate YOUR OWN kernel instead, see "Validate YOUR OWN kernel" in
+# the README and run amp_validate_kernel directly.
+CMD ["/bin/bash", "-c", "cd /opt/amp/build && echo '=== AMP quick proof: FP32 GEMM vs CPU reference ===' && ./amp_verify_matmul && echo && echo 'Ready. Try: ./amp_validate_kernel <your_kernel.so> dump.json M N K' && echo 'See https://github.com/agusbass/AMP#validate-your-own-kernel-not-just-amps-example'"]
