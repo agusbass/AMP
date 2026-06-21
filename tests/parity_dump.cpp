@@ -108,7 +108,12 @@ static void write_json(const std::string& path, int M, int N, int K, unsigned se
 
 int main(int argc, char** argv) {
     const std::string out_path = argc > 1 ? argv[1] : "parity_dump.json";
-    const int M = 96, N = 96, K = 96;
+    // Default 96 keeps the CPU reference (naive triple loop) instant; pass
+    // M N K explicitly for a more realistic LLM-scale shape, e.g.:
+    //   amp_parity_dump dump.json 1024 1024 1024
+    const int M = argc > 4 ? std::atoi(argv[2]) : 96;
+    const int N = argc > 4 ? std::atoi(argv[3]) : 96;
+    const int K = argc > 4 ? std::atoi(argv[4]) : 96;
     const unsigned seed = 42;
 
     std::vector<float> A(M * K), B(K * N), ref(M * N);
