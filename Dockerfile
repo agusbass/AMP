@@ -2,7 +2,7 @@
 # Docker image for the AMD Developer Hackathon ACT II (Track 3 Unicorn)
 # Target: AMD ROCm 6.x on Instinct MI300X
 
-FROM rocm/rocm:6.3.2-complete AS base
+FROM rocm/dev-ubuntu-22.04:6.3.2-complete AS base
 
 LABEL maintainer="AMD Hackathon Participant"
 LABEL description="AMP — AMD Migration Platform: Multi-vendor GPU Runtime"
