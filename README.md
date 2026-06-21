@@ -2,6 +2,10 @@
 
 **Validates that your CUDA kernel and its HIP port produce the same numbers — so trying AMD Instinct is a same-day decision, not a multi-week migration project.**
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agusbass/AMP/blob/master/notebooks/quickstart.ipynb)
+
+No clone, no install, no local GPU needed — click the badge, Runtime → Run all, see real GPU output in under a minute.
+
 ```
 Cross-vendor parity: nvidia (Tesla T4) vs amd (MI300X), M=N=K=1024
 
