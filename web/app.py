@@ -97,7 +97,7 @@ with gr.Blocks(title="AMP — CUDA to AMD kernel diagnosis") as demo:
             btn = gr.Button("Diagnose for AMD", variant="primary")
         with gr.Column():
             findings_out = gr.Markdown(label="Findings")
-            diff_out = gr.Code(label="Suggested fix (unified diff)", language="diff")
+            diff_out = gr.Code(label="Suggested fix (unified diff)")
             fixed_out = gr.Code(label="Fixed kernel", language="cpp")
 
     btn.click(diagnose, inputs=[code_in, tile_in],
