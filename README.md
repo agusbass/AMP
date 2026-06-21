@@ -3,8 +3,11 @@
 **Validates that your CUDA kernel and its HIP port produce the same numbers — so trying AMD Instinct is a same-day decision, not a multi-week migration project.**
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agusbass/AMP/blob/master/notebooks/quickstart.ipynb)
+[![Try the diagnosis UI](https://img.shields.io/badge/🤗%20Spaces-Try%20it%20live-blue)](https://huggingface.co/spaces/agusbudiman14/amp-kernel-diagnose)
 
-No clone, no install, no local GPU needed — click the badge, Runtime → Run all, see real GPU output in under a minute.
+No clone, no install, no local GPU needed:
+- **Colab badge** → real GPU build + cross-vendor parity check, in your browser.
+- **Spaces badge** → paste a kernel, get a CUDA→AMD bug diagnosis and fix instantly, no GPU needed at all.
 
 ```
 Cross-vendor parity: nvidia (Tesla T4) vs amd (MI300X), M=N=K=1024
