@@ -57,13 +57,15 @@ cd build
 # AMP's own kernel, vs CPU reference (no setup needed)
 ./amp_verify_matmul
 
-# Validate YOUR kernel instead: write one wrapper (see include/amp_plugin.h,
-# or generate one: python3 scripts/amp_generate_wrapper.py my_kernel_name)
-nvcc  -shared -Xcompiler -fPIC my_kernel.cu -o libmine_cuda.so   # CUDA machine
-hipcc -shared -fPIC          my_kernel.cu -o libmine_hip.so      # AMD machine
-./amp_validate_kernel libmine_cuda.so cuda_dump.json 1024 1024 1024
-./amp_validate_kernel libmine_hip.so  hip_dump.json  1024 1024 1024
-python3 ../scripts/parity_check.py cuda_dump.json hip_dump.json --analyze
+# Validate YOUR kernel instead -- one command, same one on both machines
+# (auto-detects nvcc/hipcc, wraps, builds, validates):
+cd ..
+bash scripts/amp_check.sh my_kernel.cu my_kernel_function_name 1024 1024 1024   # CUDA machine
+bash scripts/amp_check.sh my_kernel.cu my_kernel_function_name 1024 1024 1024   # AMD machine
+python3 scripts/parity_check.py cuda_dump.json hip_dump.json --analyze
+
+# Non-standard kernel signature? Generate a wrapper to hand-edit instead:
+# python3 scripts/amp_generate_wrapper.py my_kernel_function_name
 
 # Or just docker run -- AMP's reference kernel proves itself in under 60s
 docker build -t amp . && docker run --device=/dev/kfd --device=/dev/dri amp
