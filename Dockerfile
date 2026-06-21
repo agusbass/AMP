@@ -24,15 +24,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy AMP source
 COPY . .
 
-# Build with HIP backend (AMD default)
-RUN mkdir -p build && cd build && \
-    cmake .. \
-        -DAMP_BACKEND=HIP \
-        -DAMP_HAVE_ROCWMMA=ON \
-        -DAMP_HAVE_FP8=ON \
-        -DAMP_HAVE_RCCL=ON \
-        -DCMAKE_PREFIX_PATH=/opt/rocm && \
-    make -j$(nproc)
+# Build via build_auto.sh rather than re-deriving cmake flags here --
+# hardcoding -DAMP_HAVE_ROCWMMA=ON/-DAMP_HAVE_FP8=ON unconditionally is
+# exactly the bug found and fixed on a real MI300X pod in this project's
+# validation log (find_package(rocwmma REQUIRED) and hip_fp8.h aren't
+# guaranteed present just because the base image is ROCm); build_auto.sh
+# checks for the actual file/config needed instead of assuming it.
+RUN bash scripts/build_auto.sh
 
 # Verify build
 RUN cd build && echo "=== Test Triple ===" && ./test_triple || echo "Test finished (GPU may not be available at build time)"
