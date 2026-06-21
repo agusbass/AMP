@@ -210,6 +210,28 @@ its HIP port produce the same numbers, with an actual speed ratio
 alongside the diff — and it now works end to end on real hardware from
 both vendors, no synthetic/mocked data anywhere in the pipeline.
 
+`amp_parity_dump` takes optional `M N K` args (default 96, kept small so
+the CPU reference is instant) — repeating the same check at a more
+LLM-realistic 1024×1024×1024 holds up too:
+
+```
+Cross-vendor parity: nvidia (A) vs amd (B)
+Shape: M=1024 N=1024 K=1024  seed=42
+
+tile             A GFLOPS   B GFLOPS  B/A ratio  max_rel_err  status
+(16,16,16)          583.6    12300.4     21.08x     0.000748  PASS
+(32,16,16)          638.8    12988.4     20.33x     0.000748  PASS
+(32,32,16)          662.0    11481.5     17.34x     0.000748  PASS
+(32,32,32)          831.7    12904.0     15.52x     0.000487  PASS
+
+ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
+```
+
+The 15-21x ratio tracks the hardware gap, not a measurement artifact: T4
+is an entry-level inference card (~8 TFLOPS FP32), MI300X is a
+flagship datacenter accelerator (~163 TFLOPS FP32 peak) — roughly the
+ratio seen here.
+
 ## What's still being built
 
 The original C++ runtime answers "can this code run on AMD." It doesn't yet answer the two questions that actually block migration decisions:
