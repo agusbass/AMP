@@ -230,6 +230,27 @@ static void dispatch_flash_attn(
     #define SHMEM(BR, BC, DIM) \
         (((BR)*(DIM) + 2*(BC)*(DIM) + (BR)*(BC)) * sizeof(float))
 
+    // AMD CDNA (gfx9xx) caps shared memory at 64KB/block with no opt-in
+    // above that (unlike NVIDIA, which allows opting into ~227KB on H100).
+    // Bc=64 at head_dim=128 needs 88KB, which simply doesn't fit on AMD —
+    // fall back to Bc=32 (52KB) rather than handing the hardware a request
+    // it cannot satisfy.
+    static size_t max_smem = 0;
+    if (max_smem == 0) {
+        int dev = 0;
+#if defined(AMP_BACKEND_CUDA)
+        cudaGetDevice(&dev);
+        cudaDeviceProp prop{};
+        cudaGetDeviceProperties(&prop, dev);
+#else
+        hipGetDevice(&dev);
+        hipDeviceProp_t prop{};
+        hipGetDeviceProperties(&prop, dev);
+#endif
+        max_smem = prop.sharedMemPerBlock;
+    }
+    if (Bc == 64 && SHMEM(Br, Bc, cfg.head_dim) > max_smem) Bc = 32;
+
     #define LAUNCH_FA(BR, BC, DIM) do { \
         size_t _sm = SHMEM(BR, BC, DIM); \
         auto* _fn = flash_attn_fwd_kernel<BR, BC, DIM>; \
@@ -251,6 +272,7 @@ static void dispatch_flash_attn(
     else if (Br == 32 && Bc == 64 && cfg.head_dim == 64)  LAUNCH_FA(32, 64,  64);
     else if (Br == 32 && Bc == 32 && cfg.head_dim == 64)  LAUNCH_FA(32, 32,  64);
     else if (Br == 16 && Bc == 64 && cfg.head_dim == 128) LAUNCH_FA(16, 64, 128);
+    else if (Br == 16 && Bc == 32 && cfg.head_dim == 128) LAUNCH_FA(16, 32, 128);
     else throw std::runtime_error(
         "flash_attn: unsupported (Br=" + std::to_string(Br) +
         ", Bc=" + std::to_string(Bc) + ", head_dim=" + std::to_string(cfg.head_dim) +
