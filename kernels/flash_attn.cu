@@ -114,7 +114,7 @@ __global__ void flash_attn_fwd_kernel(
     // Load Q tile row into sQ
     for (int d = lane; d < HEAD_DIM; d += 32) {
         SQ(row, d) = (q_row < S_q)
-            ? __bfloat162float(qptr[q_row * stride_S_q + d])
+            ? AMP_BF16_TO_FLOAT(qptr[q_row * stride_S_q + d])
             : 0.0f;
     }
     __syncthreads();
@@ -137,13 +137,13 @@ __global__ void flash_attn_fwd_kernel(
             int r = i / HEAD_DIM, d = i % HEAD_DIM;
             int kv_row = kv_start + r;
             SK(r, d) = (kv_row < S_kv)
-                ? __bfloat162float(kptr[kv_row * stride_S_k + d]) : 0.0f;
+                ? AMP_BF16_TO_FLOAT(kptr[kv_row * stride_S_k + d]) : 0.0f;
         }
         for (int i = threadIdx.x; i < Bc * HEAD_DIM; i += blockDim.x) {
             int r = i / HEAD_DIM, d = i % HEAD_DIM;
             int kv_row = kv_start + r;
             SV(r, d) = (kv_row < S_kv)
-                ? __bfloat162float(vptr[kv_row * stride_S_k + d]) : 0.0f;
+                ? AMP_BF16_TO_FLOAT(vptr[kv_row * stride_S_k + d]) : 0.0f;
         }
         __syncthreads();
 
@@ -190,7 +190,7 @@ __global__ void flash_attn_fwd_kernel(
     // Write output
     if (q_row < S_q) {
         for (int d = 0; d < HEAD_DIM; ++d)
-            optr[q_row * stride_S_o + d] = __float2bfloat16(o_i[d]);
+            optr[q_row * stride_S_o + d] = AMP_FLOAT_TO_BF16(o_i[d]);
         // LSE = m_i + log(l_i) — used for backward / attention combining
         lptr[q_row] = m_i + logf(l_i > 0.0f ? l_i : 1e-30f);
     }
@@ -233,16 +233,16 @@ static void dispatch_flash_attn(
     #define LAUNCH_FA(BR, BC, DIM) do { \
         size_t _sm = SHMEM(BR, BC, DIM); \
         auto* _fn = flash_attn_fwd_kernel<BR, BC, DIM>; \
-        cudaFuncSetAttribute(_fn, \
-            cudaFuncAttributeMaxDynamicSharedMemorySize, (int)_sm); \
+        AMP_FUNC_SET_ATTR((const void*)_fn, \
+            AMP_FUNC_ATTR_MAX_DYN_SHMEM, (int)_sm); \
         _fn<<<grid, block, _sm, stream>>>( \
             Q, K, V, O, lse, B, H_q, H_kv, S_q, S_kv, scale, cfg.causal, \
             stride_B_q, stride_H_q, stride_S_q, \
             stride_B_k, stride_H_k, stride_S_k, \
             stride_B_o, stride_H_o, stride_S_o); \
-        cudaError_t _err = cudaGetLastError(); \
-        if (_err != cudaSuccess) throw std::runtime_error( \
-            std::string("FA2 kernel launch failed: ") + cudaGetErrorString(_err)); \
+        gpu_error_t _err = AMP_GET_LAST_ERROR(); \
+        if (_err != AMP_OK) throw std::runtime_error( \
+            std::string("FA2 kernel launch failed: ") + AMP_GET_ERROR_STRING(_err)); \
     } while(0)
 
     // Valid configs: Br <= 32 (block <= 1024 threads)

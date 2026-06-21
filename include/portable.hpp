@@ -57,6 +57,12 @@ enum class DataType : uint8_t {
   #define AMP_STREAM_SYNC(s)    cudaStreamSynchronize(s)
   #define AMP_SYNC()            cudaDeviceSynchronize()
   #define AMP_OK                cudaSuccess
+  #define AMP_BF16_TO_FLOAT(x)   __bfloat162float(x)
+  #define AMP_FLOAT_TO_BF16(x)   __float2bfloat16(x)
+  #define AMP_FUNC_SET_ATTR(fn,attr,val) cudaFuncSetAttribute(fn,attr,val)
+  #define AMP_FUNC_ATTR_MAX_DYN_SHMEM    cudaFuncAttributeMaxDynamicSharedMemorySize
+  #define AMP_GET_LAST_ERROR()   cudaGetLastError()
+  #define AMP_GET_ERROR_STRING(e) cudaGetErrorString(e)
 
 #elif defined(AMP_BACKEND_HIP)
   #include <hip/hip_runtime.h>
@@ -86,6 +92,12 @@ enum class DataType : uint8_t {
   #define AMP_STREAM_SYNC(s)    hipStreamSynchronize(s)
   #define AMP_SYNC()            hipDeviceSynchronize()
   #define AMP_OK                hipSuccess
+  #define AMP_BF16_TO_FLOAT(x)   (float(x))
+  #define AMP_FLOAT_TO_BF16(x)   (hip_bfloat16(x))
+  #define AMP_FUNC_SET_ATTR(fn,attr,val) hipFuncSetAttribute(fn,attr,val)
+  #define AMP_FUNC_ATTR_MAX_DYN_SHMEM    hipFuncAttributeMaxDynamicSharedMemorySize
+  #define AMP_GET_LAST_ERROR()   hipGetLastError()
+  #define AMP_GET_ERROR_STRING(e) hipGetErrorString(e)
 
 #elif defined(AMP_BACKEND_SYCL)
   #include <sycl/sycl.hpp>
