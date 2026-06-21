@@ -1,0 +1,130 @@
+# Validation log
+
+Detailed, line-by-line record of what was actually built, run, and fixed.
+The README keeps only the headline result — this is the receipts.
+
+## MI300X (RunPod, ROCm 6.1)
+
+Built and ran on a rented AMD Instinct MI300X (image
+`rocm/pytorch:rocm7.1.1_ubuntu22.04_py3.11_pytorch_release_2.10.0`). The HIP
+backend had never actually been compiled before this validation pass —
+doing so surfaced 8 real bugs, all fixed and pushed:
+
+1. `include/portable.hpp` included `<hiprtc/hiprtc.h>`, which doesn't exist;
+   ROCm ships it as `<hip/hiprtc.h>`.
+2. `src/collective.cpp` called `ncclCommInitAll` with the wrong argument
+   count/order (`ndev` passed twice).
+3. `CMakeLists.txt` never actually compiled the `.cu` kernel sources for
+   the HIP backend — without CUDA language support enabled project-wide,
+   CMake silently dropped `kernels/matmul.cu`/`flash_attn.cu` from every HIP
+   target instead of erroring.
+4. Fixing #3 needed `-x hip` (not CMake's default `-x c++`) so the compiler
+   actually enables `__global__`/`__shared__`/`threadIdx` for those files.
+5. `kernels/flash_attn.cu` called CUDA-only symbols directly
+   (`__bfloat162float`, `cudaGetLastError`, etc.) despite its own
+   `#if AMP_BACKEND_CUDA || AMP_BACKEND_HIP` guard implying HIP support;
+   added vendor-neutral `AMP_BF16_TO_FLOAT`/`AMP_GET_LAST_ERROR`/etc. macros
+   to `portable.hpp`.
+6. FlashAttention's default tile config needs 88KB of dynamic shared
+   memory; MI300X hard-caps shared memory at 64KB/block with no opt-in
+   (unlike NVIDIA's ~227KB on H100). Added a runtime check that falls back
+   to a smaller tile (52KB) instead of crashing with `invalid argument`.
+7. The rocBLAS GEMM path's `lda`/`ldb`/`ldc` were already correct for the
+   standard row-major-via-column-major BLAS trick, but the call never
+   applied the matching operand swap (A↔B, M↔N) that trick requires —
+   failed with `rocblas_status_invalid_size` for any non-square M≠K shape.
+8. `scripts/build_auto.sh` itself enabled `-DAMP_HAVE_ROCWMMA=ON` whenever
+   `$ROCM_PATH/include/rocwmma` existed, but `find_package(rocwmma
+   REQUIRED)` needs a CMake package config this image doesn't ship despite
+   having the headers; and enabled `-DAMP_HAVE_FP8=ON` purely from
+   `ROCm >= 6.1`, but `hip_fp8.h` can still be absent on a 6.1.0 install (as
+   it was here). Both checks now verify the actual file/config needed.
+
+After all 8 fixes, `test_triple` (GEMM autotune, paged KV pool,
+FlashAttention-2, RCCL collectives, continuous batching, speculative
+decoding, rocBLAS) passes end-to-end on MI300X.
+
+## Docker build (GitHub Actions CI, no GPU needed)
+
+The hackathon requires a containerized submission. The `Dockerfile` had
+never actually been built by anyone before this pass. Compiling HIP device
+code doesn't need a GPU, only running it does, so CI validates the build
+on every push (`.github/workflows/docker-build.yml`). That first real
+build surfaced 2 more bugs:
+
+9. `FROM rocm/rocm:6.3.2-complete` — this image doesn't exist on Docker
+   Hub at all. The real official image is `rocm/dev-ubuntu-22.04`.
+10. `portable.hpp` used `hip_fp8_e4m3`/`hip_fp8_e5m2` as the FP8 type
+    names, but ROCm 6.3.2's `amd_hip_fp8.h` names them
+    `__hip_fp8_e4m3`/`__hip_fp8_e5m2` (double underscore prefix). Never
+    caught on the MI300X pod because that pod's ROCm install lacked
+    `hip_fp8.h` entirely, so `AMP_HAVE_FP8` was always OFF there.
+
+With both fixed, CI now builds the image end-to-end successfully.
+`./test_triple` correctly reports `no ROCm-capable device is detected` and
+exits — expected on a GPU-less CI runner, and proof the *build* works
+independent of GPU availability.
+
+## NVIDIA side (Google Colab, Tesla T4)
+
+The same CUDA backend was separately built and run on a real NVIDIA Tesla
+T4 (free tier, CUDA 12.8). `amp_verify_matmul` passes all 4 tile configs
+with the same `max_rel_err≈0.00006` as the MI300X run — the FP32 GEMM
+kernel is numerically identical across both vendors. cuBLASLt (CUDA
+vendor-GEMM) ran cleanly (6043 GFLOPS, 1024×1024×512 FP32) with no fixes
+needed.
+
+The plugin interface (`amp_validate_kernel` + `examples/user_plugin_example.cu`)
+was also verified end to end on the T4: PASS, `max_rel_err=0.00045` vs CPU
+reference. The HIP-side run of the same example, to close the cross-vendor
+loop for the plugin path specifically, is pending MI300X capacity.
+
+## Cross-vendor parity results
+
+96×96×96 (toy scale):
+
+```
+Cross-vendor parity: nvidia (A) vs amd (B)
+tile             A GFLOPS   B GFLOPS  B/A ratio  max_rel_err  status
+(16,16,16)          183.5      329.6      1.80x     0.000069  PASS
+(32,16,16)          154.5      287.0      1.86x     0.000069  PASS
+(32,32,16)          113.5      235.3      2.07x     0.000069  PASS
+(32,32,32)          133.0      267.1      2.01x     0.000044  PASS
+ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
+```
+
+1024×1024×1024 (LLM-realistic scale):
+
+```
+Cross-vendor parity: nvidia (A) vs amd (B)
+tile             A GFLOPS   B GFLOPS  B/A ratio  max_rel_err  status
+(16,16,16)          583.6    12300.4     21.08x     0.000748  PASS
+(32,16,16)          638.8    12988.4     20.33x     0.000748  PASS
+(32,32,16)          662.0    11481.5     17.34x     0.000748  PASS
+(32,32,32)          831.7    12904.0     15.52x     0.000487  PASS
+ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
+```
+
+The 15-21x ratio tracks the actual hardware gap (T4 ~8 TFLOPS FP32 vs
+MI300X ~163 TFLOPS FP32 peak), not a measurement artifact.
+
+## Cost vs. the alternative
+
+This entire validation pass — building the HIP backend and Docker image
+for the first time, finding and fixing 10 real bugs, and producing a
+verified cross-vendor parity result — took roughly an hour of MI300X
+rental (~$2.19/hr on RunPod) plus a free Colab T4 session and free GitHub
+Actions minutes. The alternative is trusting an unverified port in
+production, or days of an engineer manually instrumenting both builds to
+compare outputs by hand.
+
+## Prior art considered
+
+Closest prior work is [CASS](https://github.com/ahmedheakl/CASS) (MBZUAI),
+which validates CUDA→HIP transpilation correctness/performance as a
+research benchmark over classic HPC workloads (Rodinia/SHOC/PolyBench),
+not a practical tool aimed at LLM-inference kernels a developer points at
+their own code. Two earlier project ideas turned out to already exist in
+production and were dropped: KV-cache offload to CPU (already solved by
+[LMCache](https://github.com/LMCache/LMCache)), and ROCm install/validation
+tooling (AMD's own ROCm Validation Suite, RCCL-Tests).
