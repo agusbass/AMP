@@ -118,6 +118,30 @@ Actions minutes. The alternative is trusting an unverified port in
 production, or days of an engineer manually instrumenting both builds to
 compare outputs by hand.
 
+## UX layer (Spaces, Colab, one-command scripts)
+
+- **HF Spaces** (`web/app.py`, deployed to
+  [agusbudiman14/amp-kernel-diagnose](https://agusbudiman14-amp-kernel-diagnose.hf.space/)):
+  ✅ live, verified via direct HTTP request and a real diagnose-and-fix run
+  against `tests/fixtures/buggy_matmul_fixture.cuh` (the same fixture
+  `tests/test_diagnose.py` covers) — found the same 2 HIGH findings and
+  applied the same `BN`→`BK` + inserted-`__syncthreads()` fix the CLI
+  produces.
+- **Colab quickstart** (`notebooks/quickstart.ipynb`): ✅ the underlying
+  build/verify/parity-dump steps it runs are the same ones verified live
+  on Tesla T4 above; the notebook itself (git-clone-based, no manual
+  upload) has not been re-run end-to-end since that change.
+- **`scripts/amp_check.sh`** (one-command kernel check): only
+  syntax-checked and tested against its own no-compiler-found error path
+  locally — **not yet run against a real `nvcc`/`hipcc` on actual
+  hardware**. `scripts/amp_generate_wrapper.py`, which it's built on top
+  of, is unit-tested (`tests/test_generate_wrapper.py`) but only for
+  output shape, not by actually compiling the generated wrapper.
+- **Docker's default `CMD`** (runs `amp_verify_matmul` on `docker run`):
+  CI only validates `docker build` (no GPU on GitHub-hosted runners), so
+  the actual `docker run` path — including this default command — has
+  never been executed against a real device.
+
 ## Prior art considered
 
 Closest prior work is [CASS](https://github.com/ahmedheakl/CASS) (MBZUAI),
