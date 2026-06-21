@@ -53,8 +53,12 @@ target_link_libraries(amp_verify_cache_async PRIVATE Threads::Threads)
 # this once on a CUDA machine and once on a HIP machine against their own
 # kernel, then diff with scripts/parity_check.py, without needing AMP's
 # own CUDA/HIP build at all. See include/amp_plugin.h.
-add_executable(amp_validate_kernel tests/amp_validate_kernel.cpp)
+#
+# Uses dlfcn.h, which is POSIX-only -- every real deployment target for
+# this (RunPod, Colab, AMD Developer Cloud) is Linux, so this is gated on
+# UNIX rather than ported to LoadLibrary/GetProcAddress for Windows.
 if(UNIX)
+    add_executable(amp_validate_kernel tests/amp_validate_kernel.cpp)
     target_link_libraries(amp_validate_kernel PRIVATE ${CMAKE_DL_LIBS})
 endif()
 
