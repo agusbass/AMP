@@ -23,14 +23,16 @@ ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
 ```
 
 Getting there wasn't a clean run: compiling the HIP backend for the
-first time surfaced 8 real, previously-undetected bugs — including one
+first time surfaced 10 real, previously-undetected bugs — including one
 where CMake was silently skipping the kernel `.cu` files entirely for
 every HIP build, so the project's own "builds on all 4 backends" claim
-had never actually been backed by a real HIP compile, and another in
-`build_auto.sh` itself (the actual onboarding path) that would have
-hit ROCm-image-specific gaps the first time a real user ran it. All 8
-are fixed, pushed, and itemized in the **MI300X validation log** below
-— that's the difference between "should work" and "does work," and
+had never actually been backed by a real HIP compile, and another
+where the hackathon-required `Dockerfile` referenced a base image that
+doesn't exist on Docker Hub at all, so it had never been built by
+anyone, including whoever wrote it. All 10 are fixed, pushed, and
+itemized in the **MI300X validation log** and **Docker build
+validation** sections below — that's the difference between "should
+work" and "does work," and
 it's the reason this tool needs to exist at all.
 
 ## Validate YOUR OWN kernel, not just AMP's example
@@ -189,10 +191,11 @@ We name this gap explicitly rather than claim novelty in the abstract — see
 the honesty note below for what already exists and what doesn't.
 
 **What this actually costs vs. what it saves:** the validation pass
-documented in this README — building the HIP backend for the first
-time, finding and fixing 8 real bugs, and producing a verified
-cross-vendor parity result — took roughly an hour of MI300X rental time
-(~$2.19/hr on RunPod) plus a free Colab T4 session. The alternative is
+documented in this README — building the HIP backend and Docker image
+for the first time, finding and fixing 10 real bugs, and producing a
+verified cross-vendor parity result — took roughly an hour of MI300X
+rental time (~$2.19/hr on RunPod) plus a free Colab T4 session and free
+GitHub Actions CI minutes. The alternative is
 the status quo: a team either trusts an unverified port in production
 (the actual risk this tool exists to remove), or spends days of an
 engineer's time manually instrumenting both builds to compare outputs
@@ -209,7 +212,7 @@ debugging project with no fixed end date.
 | GEMM (FP32/BF16/FP8) + FlashAttention-2 kernels | ✅ FP32 GEMM and FlashAttention-2 (causal, GQA) both run correctly on MI300X — `amp_verify_matmul` passes all 4 tile configs numerically (max rel err ~6e-5 vs CPU reference); FP8 untested (no `hip_fp8.h` on this ROCm install) | `kernels/`, `tests/verify_matmul_correctness.cpp` |
 | Continuous batching scheduler, speculative decoding, paged KV pool | ✅ All three run and pass inside `test_triple` on MI300X (20/20 requests completed, 60.4% speculative acceptance) | `src/` |
 | rocBLAS vendor GEMM backend | ✅ Verified on MI300X after fixing a row-major/column-major argument-order bug (see below) | `src/gemm_vendor.cpp` |
-| Docker image (ROCm 6.3.2 base) | Dockerfile present, build not attempted in this session (used a pre-built ROCm/PyTorch image on RunPod instead) | `Dockerfile` |
+| Docker image (ROCm 6.3.2 base) | ✅ **Verified via CI** — builds end-to-end against the real `rocm/dev-ubuntu-22.04:6.3.2-complete` image (GitHub Actions, no GPU needed to compile HIP code); see Docker build validation below | `Dockerfile`, `.github/workflows/docker-build.yml` |
 | Static auto-diagnosis + suggested-fix for kernel bugs | ✅ **Verified in this session**: 8/8 tests pass, zero false positives on the real kernel's 4 supported tile configs, both injected bugs in the fixture are caught and mechanically fixed | `scripts/amp_diagnose.py`, `scripts/amp_suggest_fix.py`, `scripts/amp_fix.py`, `tests/test_diagnose.py`, `tests/test_suggest_fix.py` |
 | Open-source model compatibility check (FlashAttention-2 head_dim/GQA) | ✅ **Verified in this session**: checks 4 real models (configs fetched live from Hugging Face, not memorized) against the kernel's actual constraints; all 4 pass, fictional bad-GQA example correctly fails | `scripts/amp_model_check.py`, `tests/test_model_check.py` |
 
@@ -264,6 +267,33 @@ batching, speculative decoding, and rocBLAS) passes end-to-end on MI300X.
 `scripts/amp_pipeline.sh` is still syntax-checked only, not execution-tested
 end-to-end — running it through the AMP-recommended `--auto-fix` loop on
 real hardware remains open.
+
+### Docker build validation (CI, no GPU needed)
+
+The hackathon requires a containerized submission. The `Dockerfile` had
+never actually been built by anyone before this session — a GitHub
+Actions workflow (`.github/workflows/docker-build.yml`) now builds it on
+every push, since compiling HIP device code doesn't require a GPU, only
+running it does. That first real build surfaced 2 more bugs:
+
+9. `FROM rocm/rocm:6.3.2-complete` — this image doesn't exist on Docker
+   Hub at all (`pull access denied, repository does not exist`). The
+   real official image is `rocm/dev-ubuntu-22.04`.
+10. Once the image resolved, `portable.hpp` used `hip_fp8_e4m3`/
+    `hip_fp8_e5m2` as the FP8 type names, but ROCm 6.3.2's
+    `amd_hip_fp8.h` names them `__hip_fp8_e4m3`/`__hip_fp8_e5m2` (double
+    underscore prefix). This path was never exercised on the MI300X pod
+    used earlier in this session because that pod's ROCm install lacked
+    `hip_fp8.h` entirely, so `AMP_HAVE_FP8` was always OFF there —
+    `rocm/dev-ubuntu-22.04:6.3.2-complete` does have the header, which is
+    exactly what caught the wrong type names.
+
+With both fixed, the CI build now completes end-to-end: `✅ AMP build
+complete (backend: HIP)`, image exported successfully.
+`./test_triple` correctly reports `no ROCm-capable device is detected`
+and exits — expected and handled gracefully, since GitHub-hosted
+runners have no GPU; this validates the *build*, not a GPU run, which
+is exactly what containerizing without GPU-at-build-time can prove.
 
 ### NVIDIA-side validation (Colab, Tesla T4)
 
