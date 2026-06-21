@@ -23,13 +23,15 @@ ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
 ```
 
 Getting there wasn't a clean run: compiling the HIP backend for the
-first time surfaced 7 real, previously-undetected bugs — including one
+first time surfaced 8 real, previously-undetected bugs — including one
 where CMake was silently skipping the kernel `.cu` files entirely for
 every HIP build, so the project's own "builds on all 4 backends" claim
-had never actually been backed by a real HIP compile. All 7 are fixed,
-pushed, and itemized in the **MI300X validation log** below — that's the
-difference between "should work" and "does work," and it's the reason
-this tool needs to exist at all.
+had never actually been backed by a real HIP compile, and another in
+`build_auto.sh` itself (the actual onboarding path) that would have
+hit ROCm-image-specific gaps the first time a real user ran it. All 8
+are fixed, pushed, and itemized in the **MI300X validation log** below
+— that's the difference between "should work" and "does work," and
+it's the reason this tool needs to exist at all.
 
 ## Validate YOUR OWN kernel, not just AMP's example
 
@@ -188,7 +190,7 @@ the honesty note below for what already exists and what doesn't.
 
 **What this actually costs vs. what it saves:** the validation pass
 documented in this README — building the HIP backend for the first
-time, finding and fixing 7 real bugs, and producing a verified
+time, finding and fixing 8 real bugs, and producing a verified
 cross-vendor parity result — took roughly an hour of MI300X rental time
 (~$2.19/hr on RunPod) plus a free Colab T4 session. The alternative is
 the status quo: a team either trusts an unverified port in production
@@ -216,7 +218,7 @@ debugging project with no fixed end date.
 Built and ran on a rented AMD Instinct MI300X (RunPod, ROCm 6.1, image
 `rocm/pytorch:rocm7.1.1_ubuntu22.04_py3.11_pytorch_release_2.10.0`). The HIP
 backend had never actually been compiled before this session — doing so
-surfaced 7 real bugs, all now fixed and pushed:
+surfaced 8 real bugs, all now fixed and pushed:
 
 1. `include/portable.hpp` included `<hiprtc/hiprtc.h>`, which doesn't exist;
    ROCm ships it as `<hip/hiprtc.h>`.
@@ -245,8 +247,18 @@ surfaced 7 real bugs, all now fixed and pushed:
    standard row-major-via-column-major BLAS trick, but the call never
    applied the matching operand swap (A↔B, M↔N) that trick requires —
    failed with `rocblas_status_invalid_size` for any non-square M≠K shape.
+8. `scripts/build_auto.sh` (the actual Quick Start onboarding path) would
+   have hit bugs #6's parent issues itself: it enabled `-DAMP_HAVE_ROCWMMA=ON`
+   whenever `$ROCM_PATH/include/rocwmma` existed, but `find_package(rocwmma
+   REQUIRED)` needs a CMake package config this ROCm image doesn't ship
+   despite having the headers; and it enabled `-DAMP_HAVE_FP8=ON` purely
+   from `ROCm >= 6.1`, but `hip_fp8.h` can still be absent on a 6.1.0
+   install (as it was here). Both checks now verify the actual file/config
+   needed instead of inferring it — this is the literal reason the
+   commands below in this session used manual `-DAMP_HAVE_*=OFF` flags
+   instead of plain `bash scripts/build_auto.sh`.
 
-After all seven fixes, `test_triple` (the full integration test: GEMM
+After all eight fixes, `test_triple` (the full integration test: GEMM
 autotune, paged KV pool, FlashAttention-2, RCCL collectives, continuous
 batching, speculative decoding, and rocBLAS) passes end-to-end on MI300X.
 `scripts/amp_pipeline.sh` is still syntax-checked only, not execution-tested
