@@ -2,6 +2,35 @@
 
 **Plug-and-play tooling that makes targeting AMD Instinct as easy as targeting NVIDIA — right when NVIDIA hardware is hardest to get.**
 
+## Proof, not a pitch: this ran on real NVIDIA and real AMD hardware today
+
+Most of this README is honest about what's *not yet* verified (see the
+caveats throughout) — but the core claim, cross-vendor numerical parity,
+has now actually been run end to end on rented hardware from both
+vendors, at both a toy scale and an LLM-realistic scale:
+
+```
+Cross-vendor parity: nvidia (Tesla T4) vs amd (MI300X)
+Shape: M=1024 N=1024 K=1024  seed=42
+
+tile             A GFLOPS   B GFLOPS  B/A ratio  max_rel_err  status
+(16,16,16)          583.6    12300.4     21.08x     0.000748  PASS
+(32,16,16)          638.8    12988.4     20.33x     0.000748  PASS
+(32,32,16)          662.0    11481.5     17.34x     0.000748  PASS
+(32,32,32)          831.7    12904.0     15.52x     0.000487  PASS
+
+ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
+```
+
+Getting there wasn't a clean run: compiling the HIP backend for the
+first time surfaced 7 real, previously-undetected bugs — including one
+where CMake was silently skipping the kernel `.cu` files entirely for
+every HIP build, so the project's own "builds on all 4 backends" claim
+had never actually been backed by a real HIP compile. All 7 are fixed,
+pushed, and itemized in the **MI300X validation log** below — that's the
+difference between "should work" and "does work," and it's the reason
+this tool needs to exist at all.
+
 ## 60-second demo: a bug that used to take hours to find
 
 `tests/fixtures/buggy_matmul_fixture.cuh` is a kernel we wrote specifically
@@ -117,6 +146,18 @@ to estimate or budget for in advance.
 
 We name this gap explicitly rather than claim novelty in the abstract — see
 the honesty note below for what already exists and what doesn't.
+
+**What this actually costs vs. what it saves:** the validation pass
+documented in this README — building the HIP backend for the first
+time, finding and fixing 7 real bugs, and producing a verified
+cross-vendor parity result — took roughly an hour of MI300X rental time
+(~$2.19/hr on RunPod) plus a free Colab T4 session. The alternative is
+the status quo: a team either trusts an unverified port in production
+(the actual risk this tool exists to remove), or spends days of an
+engineer's time manually instrumenting both builds to compare outputs
+by hand. AMP doesn't make that comparison free, but it turns it into a
+same-session, sub-$5-of-compute check instead of an open-ended
+debugging project with no fixed end date.
 
 ## What's in here
 
@@ -323,3 +364,16 @@ not a real C++ parser, so it works best on the statically-declared 2D
 shared-memory idiom `matmul.cu`/`.cuh` use; kernels using dynamic shared
 memory with pointer arithmetic, like `flash_attn.cu`, are scanned safely but
 won't trigger the dimension-mismatch/missing-sync checks).
+
+**Why regex/heuristics instead of a real C++ parser (libclang/AST):** a
+full parser would catch more patterns, but it also means shipping a
+clang dependency and parsing the kernel in whatever build configuration
+the project happens to be in — exactly the kind of setup cost this tool
+exists to remove. The regex approach has zero dependencies, runs in
+milliseconds with no GPU and no compiler, and — per `tests/test_diagnose.py`
+— catches both bug classes behind the most dangerous failure mode this
+tool targets (silently wrong output on some tile configs, not a crash on
+launch), with zero false positives on the actual shipped kernel. It's a
+narrower tool by design, not an unfinished one; broadening pattern
+coverage is an incremental, additive change to
+`scripts/bug_patterns.json`, not a rewrite.
