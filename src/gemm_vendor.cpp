@@ -263,13 +263,20 @@ void VendorGemm::rocblas_gemm_impl(const GemmDesc& d,
 
     float alpha = d.alpha, beta = d.beta;
 
+    // lda/ldb/ldc above are the leading dimensions of A/B/C as stored
+    // row-major. rocblas_gemm_ex (like cuBLAS) is column-major-only, so we
+    // apply the standard row-major-via-column-major trick: C_rm = A_rm*B_rm
+    // is computed as C_rm^T = B_rm^T * A_rm^T, i.e. swap A<->B and M<->N
+    // (the row-major buffers are unchanged; only the call's operand order
+    // and dimensions swap). Without this swap, rocBLAS rejects the call
+    // with rocblas_status_invalid_size whenever M != K.
     ROCBLAS_CHECK(rocblas_gemm_ex(
         rocblas_handle_,
-        op_a, op_b,
-        d.M, d.N, d.K,
+        op_b, op_a,
+        d.N, d.M, d.K,
         &alpha,
-        dA, dt_a, lda,
         dB, dt_b, ldb,
+        dA, dt_a, lda,
         &beta,
         dC, dt_c, ldc,
         dC, dt_c, ldc,
