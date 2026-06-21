@@ -5,9 +5,8 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agusbass/AMP/blob/master/notebooks/quickstart.ipynb)
 [![Try the diagnosis UI](https://img.shields.io/badge/🤗%20Spaces-Try%20it%20live-blue)](https://agusbudiman14-amp-kernel-diagnose.hf.space/)
 
-No clone, no install, no local GPU needed:
-- **Colab badge** → real GPU build + cross-vendor parity check, in your browser.
-- **Spaces badge** → paste a kernel, get a CUDA→AMD bug diagnosis and fix instantly, no GPU needed at all.
+- **Colab** → real GPU build + cross-vendor parity check, in your browser.
+- **Spaces** → paste a kernel, get a diagnosis + fix instantly, no GPU needed.
 
 ```
 Cross-vendor parity: nvidia (Tesla T4) vs amd (MI300X), M=N=K=1024
@@ -21,15 +20,14 @@ tile             A GFLOPS   B GFLOPS  B/A ratio  max_rel_err  status
 ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
 ```
 
-Real output from real NVIDIA and real AMD hardware, not a mock. Getting
-here surfaced and fixed 10 real bugs across the build system, kernels, and
-Docker image — full receipts in **[docs/VALIDATION.md](docs/VALIDATION.md)**.
+Real hardware, not a mock. 10 real bugs found and fixed getting here —
+[full log](docs/VALIDATION.md).
 
 ## What it does
 
-1. **Validate YOUR kernel** (CUDA or HIP, yours — not just AMP's example) against a CPU reference and a same-shape run from the other vendor.
-2. **Diagnose failures without a GPU** — static analysis flags the kernel bug class that survives "compiles and doesn't crash" (wrong output on some tile configs), and suggests a mechanical fix.
-3. **Check model compatibility** before you touch hardware — does your FlashAttention-2 kernel even support a model's head_dim/GQA shape?
+1. **Validate YOUR kernel** (CUDA or HIP) against a CPU reference and a same-shape run from the other vendor.
+2. **Diagnose failures with no GPU** — static analysis + mechanical fix for the bug class that survives "compiles and doesn't crash."
+3. **Check model compatibility** (FlashAttention-2 head_dim/GQA) before touching hardware.
 
 ```
   Your CUDA kernel              Your HIP kernel
@@ -57,24 +55,18 @@ Docker image — full receipts in **[docs/VALIDATION.md](docs/VALIDATION.md)**.
 ## Quick start
 
 ```bash
-# Build (auto-detects CUDA/HIP/SYCL/CPU, zero manual flags)
-bash scripts/build_auto.sh
-cd build
+bash scripts/build_auto.sh   # auto-detects CUDA/HIP/SYCL/CPU, zero manual flags
+cd build && ./amp_verify_matmul   # AMP's own kernel vs CPU reference
 
-# AMP's own kernel, vs CPU reference (no setup needed)
-./amp_verify_matmul
-
-# Validate YOUR kernel instead -- one command, same one on both machines
-# (auto-detects nvcc/hipcc, wraps, builds, validates):
+# Validate YOUR kernel -- one command, same one on both machines:
 cd ..
 bash scripts/amp_check.sh my_kernel.cu my_kernel_function_name 1024 1024 1024   # CUDA machine
 bash scripts/amp_check.sh my_kernel.cu my_kernel_function_name 1024 1024 1024   # AMD machine
 python3 scripts/parity_check.py cuda_dump.json hip_dump.json --analyze
 
-# Non-standard kernel signature? Generate a wrapper to hand-edit instead:
-# python3 scripts/amp_generate_wrapper.py my_kernel_function_name
+# Non-standard signature? python3 scripts/amp_generate_wrapper.py my_kernel_function_name
 
-# Or just docker run -- AMP's reference kernel proves itself in under 60s
+# Or just: AMP's reference kernel proves itself in under 60s
 docker build -t amp . && docker run --device=/dev/kfd --device=/dev/dri amp
 ```
 
@@ -83,36 +75,23 @@ docker build -t amp . && docker run --device=/dev/kfd --device=/dev/dri amp
 ```bash
 python3 scripts/amp_diagnose.py kernels/matmul.cu kernels/matmul.cuh --tile 32,16,32
 python3 scripts/amp_suggest_fix.py kernels/matmul.cu kernels/matmul.cuh --tile 32,16,32 --json > fix.json
-python3 scripts/amp_fix.py fix.json --yes   # always shows a diff first; nothing applied without --yes
+python3 scripts/amp_fix.py fix.json --yes   # diff shown first; nothing applied without --yes
 ```
 
-Regex/heuristic-based by design (zero dependencies, no compiler, no GPU,
-runs in milliseconds) — not a full C++ parser. Catches the two bug classes
-that the most dangerous failure mode (silently-wrong-output, not a crash)
-is built from, with zero false positives on the shipped kernel. See
-[docs/VALIDATION.md](docs/VALIDATION.md) for why this tradeoff and what it
-doesn't catch.
+Regex-based by design — zero dependencies, no GPU/compiler, runs in
+milliseconds. Catches the bug class that survives "compiles and doesn't
+crash." Why this tradeoff, and what it doesn't catch:
+[docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## Why this, why now
 
-NVIDIA controls ~80% of the AI accelerator market and a 20+ year CUDA
-ecosystem — that's not in dispute. But the 2026 GPU supply crunch makes
-"wait for NVIDIA" not always an option, and AMD Instinct is a credible
-alternative blocked mostly by **practical setup cost**: right CMake flags,
-which ROCm features exist, and whether a CUDA→HIP port is even numerically
-correct before you trust it with production traffic.
-
 AMD ships HIPIFY (mechanical transpile) and the ROCm Validation Suite
-(install health) — neither answers "is the kernel HIPIFY transpiled for me
-*numerically correct*, and how far off in performance?" That gap is this
-tool. Full business case, prior-art comparison, and cost-vs-alternative
-math: **[docs/VALIDATION.md](docs/VALIDATION.md)**.
+(install health) — neither proves the transpiled kernel is *numerically
+correct* or how far off it is in performance. That gap is this tool.
+Business case and prior art: [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## What's still open
 
-- Cross-vendor parity for the plugin path (user's own kernel) is verified
-  on NVIDIA; the HIP-side run is pending MI300X capacity.
-- `scripts/amp_pipeline.sh` (build → verify → diagnose → fix, chained) is
-  syntax-checked, not yet run end-to-end on real hardware.
-- FP8 kernel path untested (the validation ROCm images used didn't all
-  have `hip_fp8.h`).
+- Plugin-path parity (user's own kernel) verified on NVIDIA; HIP side pending MI300X capacity.
+- `scripts/amp_pipeline.sh` is syntax-checked, not yet run end-to-end on real hardware.
+- FP8 kernel path untested (validation images lacked `hip_fp8.h`).
