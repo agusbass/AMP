@@ -173,6 +173,20 @@ batching, speculative decoding, and rocBLAS) passes end-to-end on MI300X.
 end-to-end — running it through the AMP-recommended `--auto-fix` loop on
 real hardware remains open.
 
+### NVIDIA-side validation (Colab, Tesla T4)
+
+The same CUDA backend was separately built and run on a real NVIDIA Tesla
+T4 (Google Colab free tier, CUDA 12.8). `amp_verify_matmul` passes all 4
+tile configs with the *same* `max_rel_err≈0.00006` as the MI300X run —
+the FP32 GEMM kernel is numerically identical across both vendors, not
+just "compiles on both." `amp_parity_dump` also ran successfully,
+producing `cuda_dump.json` (per-tile GFLOPS + actual output tensors) —
+the input `scripts/parity_check.py` needs for an automated cross-vendor
+diff; pairing it with a `hip_dump.json` run on MI300X is the next step.
+cuBLASLt (the CUDA vendor-GEMM backend) also ran cleanly (6043 GFLOPS,
+1024×1024×512 FP32) with no fixes needed — unlike its rocBLAS HIP
+counterpart, which needed the operand-swap fix in #7 above.
+
 ## What's still being built
 
 The original C++ runtime answers "can this code run on AMD." It doesn't yet answer the two questions that actually block migration decisions:
