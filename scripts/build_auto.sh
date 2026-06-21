@@ -28,11 +28,20 @@ elif command -v rocm-smi >/dev/null 2>&1 || [ -d /opt/rocm ]; then
     export ROCM_PATH="${ROCM_PATH:-/opt/rocm}"
     EXTRA_FLAGS+=("-DCMAKE_PREFIX_PATH=$ROCM_PATH")
     echo "✅ AMD ROCm detected (ROCM_PATH=$ROCM_PATH)"
-    ROCM_VER="$("$ROCM_PATH/bin/rocm-smi" --showdriverversion 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)"
-    [ -d "$ROCM_PATH/include/rocwmma" ] && EXTRA_FLAGS+=("-DAMP_HAVE_ROCWMMA=ON")
+    # Check for the actual CMake package config, not just the header dir --
+    # several ROCm images (e.g. rocwmma-dev on ROCm 6.1.0) ship the headers
+    # but no rocwmmaConfig.cmake, which makes find_package(rocwmma REQUIRED)
+    # in CMakeLists.txt fail outright. Confirmed missing on a real MI300X
+    # pod despite /opt/rocm/include/rocwmma existing.
+    if ls "$ROCM_PATH"/lib/cmake/rocwmma/rocwmma*-config.cmake >/dev/null 2>&1 || \
+       ls "$ROCM_PATH"/lib/cmake/rocwmma/rocwmmaConfig.cmake >/dev/null 2>&1; then
+        EXTRA_FLAGS+=("-DAMP_HAVE_ROCWMMA=ON")
+    fi
     ldconfig -p 2>/dev/null | grep -q librocblas && EXTRA_FLAGS+=("-DAMP_HAVE_ROCBLAS=ON")
     ldconfig -p 2>/dev/null | grep -q librccl && EXTRA_FLAGS+=("-DAMP_HAVE_RCCL=ON")
-    if [ -n "$ROCM_VER" ] && awk -v v="$ROCM_VER" 'BEGIN{exit !(v>=6.1)}'; then
+    # Check for the actual header, not just "ROCm >= 6.1" -- confirmed on
+    # real hardware that hip_fp8.h can be absent even on ROCm 6.1.0.
+    if [ -f "$ROCM_PATH/include/hip/hip_fp8.h" ]; then
         EXTRA_FLAGS+=("-DAMP_HAVE_FP8=ON")
     fi
 
