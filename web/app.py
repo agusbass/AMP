@@ -80,16 +80,10 @@ def diagnose(code: str, tile: str):
 with gr.Blocks(title="AMP — CUDA to AMD kernel diagnosis") as demo:
     gr.Markdown(
         "# 🛠️ AMP — instant CUDA→AMD kernel diagnosis\n"
-        "**New here? You don't need to know CUDA.** A real buggy kernel is "
-        "already loaded below — just click **Diagnose for AMD** and watch it "
-        "find the bug and write the fix. No setup, no typing required.\n\n"
-        "If you have your own kernel: paste it in, click the same button. "
-        "Static analysis only — no GPU, no compiler needed. This UI calls "
-        "the exact same `amp_diagnose.py`/`amp_suggest_fix.py` logic the CLI "
-        "and `parity_check.py --analyze` use on a real cross-vendor FAIL. "
-        "See [the repo](https://github.com/agusbass/AMP) for the full "
-        "validated CUDA↔HIP parity-check workflow (this Space covers the "
-        "no-GPU diagnosis half of it)."
+        "**New here?** A buggy kernel is already loaded below — just click "
+        "**Diagnose for AMD**. No GPU, no compiler, no setup.\n\n"
+        "Have your own kernel? Paste it in and click the same button. "
+        "Full workflow: [github.com/agusbass/AMP](https://github.com/agusbass/AMP)."
     )
     with gr.Row():
         with gr.Column():
