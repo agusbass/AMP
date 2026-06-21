@@ -3,7 +3,7 @@
 **Validates that your CUDA kernel and its HIP port produce the same numbers — so trying AMD Instinct is a same-day decision, not a multi-week migration project.**
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agusbass/AMP/blob/master/notebooks/quickstart.ipynb)
-[![Try the diagnosis UI](https://img.shields.io/badge/🤗%20Spaces-Try%20it%20live-blue)](https://huggingface.co/spaces/agusbudiman14/amp-kernel-diagnose)
+[![Try the diagnosis UI](https://img.shields.io/badge/🤗%20Spaces-Try%20it%20live-blue)](https://agusbudiman14-amp-kernel-diagnose.hf.space/)
 
 No clone, no install, no local GPU needed:
 - **Colab badge** → real GPU build + cross-vendor parity check, in your browser.
