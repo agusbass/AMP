@@ -60,7 +60,7 @@ enum class DataType : uint8_t {
 
 #elif defined(AMP_BACKEND_HIP)
   #include <hip/hip_runtime.h>
-  #include <hiprtc/hiprtc.h>
+  #include <hip/hiprtc.h>
   // FP8: ROCm 6.1+ (gfx940/941/942 = MI300X)
   #if __has_include(<hip/hip_fp8.h>)
     #include <hip/hip_fp8.h>
