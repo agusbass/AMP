@@ -47,6 +47,17 @@ add_executable(amp_verify_cache_async tests/verify_cache_async.cpp
     src/cache.cpp src/cache_async.cpp)
 target_link_libraries(amp_verify_cache_async PRIVATE Threads::Threads)
 
+# amp_validate_kernel: validates a USER-supplied GEMM kernel (their own
+# CUDA or HIP code, dlopen'd as a shared library) against a CPU reference
+# and dumps the same JSON schema amp_parity_dump uses -- so a user can run
+# this once on a CUDA machine and once on a HIP machine against their own
+# kernel, then diff with scripts/parity_check.py, without needing AMP's
+# own CUDA/HIP build at all. See include/amp_plugin.h.
+add_executable(amp_validate_kernel tests/amp_validate_kernel.cpp)
+if(UNIX)
+    target_link_libraries(amp_validate_kernel PRIVATE ${CMAKE_DL_LIBS})
+endif()
+
 # ---- Compile definitions ----
 if(AMP_ENABLE_PROFILER)
     add_compile_definitions(AMP_ENABLE_PROFILER)
