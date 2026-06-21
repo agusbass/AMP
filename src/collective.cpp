@@ -125,7 +125,7 @@ void comm_init_all(std::vector<CommGroup>& groups) {
     int n = local_device_count();
     groups.resize(n);
     std::vector<nccl_comm_t> comms(n);
-    AMP_NCCLCHECK(NCCL_COMM_INIT_ALL(n, comms.data(), n, nullptr));
+    AMP_NCCLCHECK(NCCL_COMM_INIT_ALL(comms.data(), n, nullptr));
     for (int i = 0; i < n; ++i) {
         auto* c = new nccl_comm_t(comms[i]);
         groups[i].handle = c; groups[i].rank = i; groups[i].world = n;
