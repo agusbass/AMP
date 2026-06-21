@@ -189,6 +189,11 @@ elseif(AMP_BACKEND STREQUAL "HIP")
         find_package(rocwmma REQUIRED)
     endif()
 
+    # Without CUDA language support enabled, CMake won't compile .cu sources
+    # under a CXX-only project — tell it to hand them to hipcc as C++.
+    set_source_files_properties(kernels/matmul.cu kernels/flash_attn.cu
+        PROPERTIES LANGUAGE CXX)
+
     add_executable(test_triple
         tests/test_triple.cpp
         kernels/matmul.cu
