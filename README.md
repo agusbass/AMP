@@ -122,29 +122,56 @@ the honesty note below for what already exists and what doesn't.
 
 | Component | Status | Source |
 |---|---|---|
-| Multi-vendor C++17 runtime (CUDA/HIP/SYCL/CPU) | Claimed working, tested on real NVIDIA T4 hardware *(inherited claim, see caveat below)* | `include/`, `src/`, `kernels/` |
-| Auto-detect build (`scripts/build_auto.sh`) | Reads correctly for all 4 backends *(inherited, not re-run — see caveat)* | `scripts/` |
-| GEMM (FP32/BF16/FP8) + FlashAttention-2 kernels | Test exists and its logic checks out by reading it; "numerically verified" is an inherited claim, not re-run here | `kernels/`, `tests/verify_matmul_correctness.cpp` |
-| Continuous batching scheduler, speculative decoding, paged KV pool | Claimed working, benchmarked *(inherited claim, see caveat below)* | `src/` |
-| Docker image (ROCm 6.3.2 base) | Dockerfile present, build not attempted in this session (no Docker available) | `Dockerfile` |
+| Multi-vendor C++17 runtime (CUDA/HIP/SYCL/CPU) | ✅ **HIP path verified on real AMD Instinct MI300X** (ROCm 6.1, RunPod) — see validation log below. CUDA/SYCL paths remain an inherited claim, not re-run here | `include/`, `src/`, `kernels/` |
+| Auto-detect build (`scripts/build_auto.sh`) | HIP backend builds and runs all 8 `test_triple` modules end-to-end on MI300X after fixing several build-system bugs found in this session (see below). CUDA/SYCL paths still unverified | `scripts/` |
+| GEMM (FP32/BF16/FP8) + FlashAttention-2 kernels | ✅ FP32 GEMM and FlashAttention-2 (causal, GQA) both run correctly on MI300X — `amp_verify_matmul` passes all 4 tile configs numerically (max rel err ~6e-5 vs CPU reference); FP8 untested (no `hip_fp8.h` on this ROCm install) | `kernels/`, `tests/verify_matmul_correctness.cpp` |
+| Continuous batching scheduler, speculative decoding, paged KV pool | ✅ All three run and pass inside `test_triple` on MI300X (20/20 requests completed, 60.4% speculative acceptance) | `src/` |
+| rocBLAS vendor GEMM backend | ✅ Verified on MI300X after fixing a row-major/column-major argument-order bug (see below) | `src/gemm_vendor.cpp` |
+| Docker image (ROCm 6.3.2 base) | Dockerfile present, build not attempted in this session (used a pre-built ROCm/PyTorch image on RunPod instead) | `Dockerfile` |
 | Static auto-diagnosis + suggested-fix for kernel bugs | ✅ **Verified in this session**: 8/8 tests pass, zero false positives on the real kernel's 4 supported tile configs, both injected bugs in the fixture are caught and mechanically fixed | `scripts/amp_diagnose.py`, `scripts/amp_suggest_fix.py`, `scripts/amp_fix.py`, `tests/test_diagnose.py`, `tests/test_suggest_fix.py` |
 | Open-source model compatibility check (FlashAttention-2 head_dim/GQA) | ✅ **Verified in this session**: checks 4 real models (configs fetched live from Hugging Face, not memorized) against the kernel's actual constraints; all 4 pass, fictional bad-GQA example correctly fails | `scripts/amp_model_check.py`, `tests/test_model_check.py` |
 
-**Important caveat on the first four rows:** this runtime is carried over
-from an earlier project (internally called ANM). Those checkmarks describe
-claims made about that predecessor project, not something independently
-re-verified in this session — there is no compiler, GPU, or Docker
-available in this environment, so none of the C++ build/test/benchmark
-claims above could be re-run or re-confirmed here. Only the last two rows
-(pure Python, neither needs a compiler nor a GPU) have actually been
-executed and checked in this session.
+### MI300X validation log (this session)
 
-`scripts/amp_pipeline.sh` (introduced in this session, see below) chains
-build → verify → diagnose → fix together but is **syntax-checked only, not
-execution-tested** — it has never actually been run, on any hardware.
-Closing all of these gaps requires running the C++ build and tests on a
-machine with ROCm/CUDA installed (e.g. AMD Developer Cloud) — see Quick
-start below.
+Built and ran on a rented AMD Instinct MI300X (RunPod, ROCm 6.1, image
+`rocm/pytorch:rocm7.1.1_ubuntu22.04_py3.11_pytorch_release_2.10.0`). The HIP
+backend had never actually been compiled before this session — doing so
+surfaced 7 real bugs, all now fixed and pushed:
+
+1. `include/portable.hpp` included `<hiprtc/hiprtc.h>`, which doesn't exist;
+   ROCm ships it as `<hip/hiprtc.h>`.
+2. `src/collective.cpp` called `ncclCommInitAll` with the wrong argument
+   count/order (`ndev` passed twice).
+3. **`CMakeLists.txt` never actually compiled the `.cu` kernel sources for
+   the HIP backend** — without CUDA language support enabled project-wide,
+   CMake silently dropped `kernels/matmul.cu`/`flash_attn.cu` from every HIP
+   target instead of erroring. This means the "reads correctly for all 4
+   backends" build claim had never been backed by an actual HIP compile
+   before now.
+4. Fixing #3 needed `-x hip` (not CMake's default `-x c++`) so the compiler
+   actually enables `__global__`/`__shared__`/`threadIdx` for those files.
+5. `kernels/flash_attn.cu` called CUDA-only symbols directly
+   (`__bfloat162float`, `cudaGetLastError`, etc.) despite its own
+   `#if AMP_BACKEND_CUDA || AMP_BACKEND_HIP` guard implying HIP support;
+   added vendor-neutral `AMP_BF16_TO_FLOAT`/`AMP_GET_LAST_ERROR`/etc. macros
+   to `portable.hpp` following the file's existing `AMP_MALLOC`/`AMP_FREE`
+   pattern.
+6. FlashAttention's default tile config needs 88KB of dynamic shared
+   memory; MI300X hard-caps shared memory at 64KB/block with no opt-in
+   (unlike NVIDIA's ~227KB on H100) — confirmed via `hipDeviceProp_t` on
+   the real device. Added a runtime check that falls back to a smaller
+   tile (52KB) instead of crashing with `invalid argument`.
+7. The rocBLAS GEMM path's `lda`/`ldb`/`ldc` were already correct for the
+   standard row-major-via-column-major BLAS trick, but the call never
+   applied the matching operand swap (A↔B, M↔N) that trick requires —
+   failed with `rocblas_status_invalid_size` for any non-square M≠K shape.
+
+After all seven fixes, `test_triple` (the full integration test: GEMM
+autotune, paged KV pool, FlashAttention-2, RCCL collectives, continuous
+batching, speculative decoding, and rocBLAS) passes end-to-end on MI300X.
+`scripts/amp_pipeline.sh` is still syntax-checked only, not execution-tested
+end-to-end — running it through the AMP-recommended `--auto-fix` loop on
+real hardware remains open.
 
 ## What's still being built
 
@@ -237,12 +264,3 @@ not a real C++ parser, so it works best on the statically-declared 2D
 shared-memory idiom `matmul.cu`/`.cuh` use; kernels using dynamic shared
 memory with pointer arithmetic, like `flash_attn.cu`, are scanned safely but
 won't trigger the dimension-mismatch/missing-sync checks).
-
-## Hackathon context
-
-| Item | Detail |
-|---|---|
-| Hackathon | AMD Developer Hackathon: ACT II |
-| Track | Unicorn Track |
-| Judges | Pawel Czech (CEO), Andrea Marazzi (Founder & CCO), lablab.ai |
-| Criteria | Application of Technology, Presentation, Business Value, Originality |
