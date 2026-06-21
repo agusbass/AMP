@@ -1,0 +1,47 @@
+{
+  "_comment": "GPU kernel bug pattern database for amp_diagnose.py (futurework.md V2.1). Each pattern is a heuristic, not a proof — it points at suspicious code for a human to check, the same way a linter does.",
+  "patterns": [
+    {
+      "id": "shared_mem_dim_mismatch",
+      "name": "Shared memory dimension mismatch",
+      "severity": "high",
+      "description": "A statically-sized __shared__ array is declared with one dimension symbol but indexed/loaded using a loop bound that is a different symbol. This is exactly the class of bug that made AMP's (32,16,16) and (32,32,16) tile configs read/write out of shared-memory bounds before the fix in matmul.cuh.",
+      "suggestion": "Make sure every loop that writes/reads a __shared__ array iterates using the same symbol as the array's declared dimension (e.g. a __shared__ float sA[BM][BK] tile must be filled by a loop bounded by BM and BK, not by blockDim.x/blockDim.y or an unrelated constant)."
+    },
+    {
+      "id": "missing_syncthreads",
+      "name": "Missing __syncthreads() between shared-memory write and read",
+      "severity": "high",
+      "description": "Threads write to a __shared__ array and other statements read from the same array later in the kernel body without a __syncthreads()/__syncwarp() in between. Without the barrier, some threads may read stale or partially-written data.",
+      "suggestion": "Insert __syncthreads() (CUDA/HIP) right after the cooperative load loop(s) that fill the shared array, before any statement reads from it."
+    },
+    {
+      "id": "loop_carried_overwrite",
+      "name": "Shared memory overwritten before previous iteration's readers finished",
+      "severity": "high",
+      "description": "A shared-memory tile is refilled on the next loop iteration (e.g. the next `kb` block in a tiled GEMM) without a __syncthreads() after the compute step that reads the current tile. Fast threads can start overwriting sA/sB while slow threads in the same block are still reading the old values.",
+      "suggestion": "Add a __syncthreads() after the inner compute loop (the dot-product/accumulate step) and before the next iteration's load loop writes to the same shared array."
+    },
+    {
+      "id": "bank_conflict_stride",
+      "name": "Potential shared-memory bank conflict",
+      "severity": "info",
+      "description": "A 2D shared-memory array is indexed with the warp/thread index in the leading (row) dimension and a fixed stride that is a multiple of 32 (the bank count on both NVIDIA and AMD CDNA), e.g. sA[threadIdx.x][k]. Depending on the declared trailing dimension this can make every thread in a warp hit the same memory bank.",
+      "suggestion": "Consider padding the trailing dimension (e.g. BK+1 instead of BK) to break the stride, or swap which index varies fastest per thread."
+    },
+    {
+      "id": "register_spill_risk",
+      "name": "Possible register spilling (heuristic only — not actively detected)",
+      "severity": "info",
+      "description": "Large unrolled inner loops (#pragma unroll) combined with large tile sizes can push per-thread register usage past the hardware limit, causing spills to local memory. This tool does not parse PTX/ISA output, so it cannot confirm spills — only ptxas -v / rocm-smi occupancy reports can.",
+      "suggestion": "Run with -Xptxas -v (CUDA) or --save-temps (HIP) and check the reported register count / occupancy if a tile config that compiles and passes correctness is unexpectedly slow."
+    },
+    {
+      "id": "tile_too_large_for_block",
+      "name": "Tile config exceeds 1024 threads/block",
+      "severity": "high",
+      "description": "BM*BN for a tiled GEMM launch must not exceed the hardware's max threads per block (1024 on both CUDA and HIP). A tile config silently dropped from the dispatch table, or a typo'd dim3 block(...) construction, can launch with BM*BN > 1024 and fail at kernel launch (not a numerical mismatch, but the same diagnosis pipeline catches it).",
+      "suggestion": "Confirm BM*BN <= 1024 for every entry in the dispatch table (DISPATCH_FP32 / equivalent) before adding a new tile config."
+    }
+  ]
+}
