@@ -71,8 +71,8 @@ enum class DataType : uint8_t {
   #if __has_include(<hip/hip_fp8.h>)
     #include <hip/hip_fp8.h>
     #define AMP_HAVE_FP8 1
-    using AMP_fp8_e4m3 = hip_fp8_e4m3;
-    using AMP_fp8_e5m2 = hip_fp8_e5m2;
+    using AMP_fp8_e4m3 = __hip_fp8_e4m3;
+    using AMP_fp8_e5m2 = __hip_fp8_e5m2;
   #endif
   #include <hip/hip_bfloat16.h>
   #include <hip/hip_fp16.h>
