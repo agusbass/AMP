@@ -190,9 +190,12 @@ elseif(AMP_BACKEND STREQUAL "HIP")
     endif()
 
     # Without CUDA language support enabled, CMake won't compile .cu sources
-    # under a CXX-only project — tell it to hand them to hipcc as C++.
+    # under a CXX-only project at all. LANGUAGE CXX makes it try, but that
+    # forces "-x c++" which drops HIP's device-side language extensions
+    # (__global__/__shared__/threadIdx); override back to "-x hip" so hipcc
+    # actually compiles these as HIP/GPU code.
     set_source_files_properties(kernels/matmul.cu kernels/flash_attn.cu
-        PROPERTIES LANGUAGE CXX)
+        PROPERTIES LANGUAGE CXX COMPILE_OPTIONS "-x;hip")
 
     add_executable(test_triple
         tests/test_triple.cpp
