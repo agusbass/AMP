@@ -31,6 +31,45 @@ pushed, and itemized in the **MI300X validation log** below — that's the
 difference between "should work" and "does work," and it's the reason
 this tool needs to exist at all.
 
+## Validate YOUR OWN kernel, not just AMP's example
+
+Everything above uses AMP's own bundled reference kernel — useful as a
+demonstration, but a real NVIDIA developer has their own GEMM kernel
+(possibly already run through HIPIFY) and no way to point the dumps
+above at it. `amp_validate_kernel` fixes that: write one wrapper
+function around your existing kernel launch, matching one fixed C
+signature, compile it as a shared library, and the *same* validator
+binary checks it against a CPU reference and produces a dump comparable
+via `scripts/parity_check.py` — whether your library was built with
+`nvcc` or `hipcc`. The validator itself links against neither CUDA nor
+HIP; it only `dlopen()`s your library, so it's one tool for both sides.
+
+```bash
+# Your kernel, wrapped per include/amp_plugin.h (see
+# examples/user_plugin_example.cu for a complete, runnable version):
+nvcc  -shared -Xcompiler -fPIC my_kernel.cu -o libmykernel_cuda.so   # on the CUDA machine
+hipcc -shared -fPIC          my_kernel.cu -o libmykernel_hip.so      # on the AMD machine
+
+./build/amp_validate_kernel libmykernel_cuda.so cuda_dump.json 1024 1024 1024
+./build/amp_validate_kernel libmykernel_hip.so  hip_dump.json  1024 1024 1024
+python3 scripts/parity_check.py cuda_dump.json hip_dump.json
+```
+
+Verified on real hardware: `examples/user_plugin_example.cu` built with
+`nvcc` on a Tesla T4 (Colab) and run through `amp_validate_kernel`:
+
+```
+Loaded plugin: build/libexample_cuda.so
+Validating M=512 N=512 K=512 seed=42 against CPU reference...
+  GFLOPS: 0.7   latency: 399.3473 ms
+  max_abs_err=0.001099 max_rel_err=0.000450 vs CPU reference  PASS
+```
+
+(GFLOPS is low because the example kernel is intentionally naive — the
+point is the wrapper shape, not its performance. Swap in your real
+kernel and the wrapper stays the same.) The HIP-side run of the same
+example, to complete the cross-vendor loop, is pending MI300X capacity.
+
 ## 60-second demo: a bug that used to take hours to find
 
 `tests/fixtures/buggy_matmul_fixture.cuh` is a kernel we wrote specifically
