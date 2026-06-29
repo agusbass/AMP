@@ -100,6 +100,14 @@ shuffle intrinsics. A transpile can compile clean and still be wrong in
 a way nothing short of running it catches. That's the check this tool
 performs.
 
+Not every gap shows up as a wrong number, either. `nvcc` and `amdgcn`
+allocate registers differently — a kernel that fits entirely in
+registers on one vendor can spill to slow scratch memory on the other,
+quietly cutting throughput without an error or a numerical mismatch.
+`amp_parity_dump`'s GFLOPS-ratio column is what catches that: a passing
+`max_rel_err` next to a far-worse-than-expected ratio is exactly what
+register spilling looks like in this tool's output.
+
 The gap is widening, not closing: AI coding agents can now port a CUDA
 backend to ROCm directly, skipping HIPIFY entirely — [one widely-shared
 example ported a full backend in ~30
