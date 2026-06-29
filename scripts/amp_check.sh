@@ -8,7 +8,7 @@
 # amp_plugin.h wrapper, compiles it, builds AMP if needed, and runs
 # amp_validate_kernel -- one command on each machine instead of five.
 #
-# Usage: bash scripts/amp_check.sh <kernel.cu> <kernel_function_name> [M N K]
+# Usage: bash scripts/amp_check.sh <kernel.cu> <kernel_function_name> [M N K] [out.json]
 #
 # If your kernel has a different signature (extra params, different
 # arg order), this won't fit -- use scripts/amp_generate_wrapper.py
@@ -18,10 +18,11 @@ set -e
 KERNEL_FILE="$1"
 KERNEL_FN="$2"
 M="${3:-512}"; N="${4:-512}"; K="${5:-512}"
+OUT_OVERRIDE="$6"
 
 if [ -z "$KERNEL_FILE" ] || [ -z "$KERNEL_FN" ]; then
     cat <<USAGE
-Usage: bash scripts/amp_check.sh <kernel.cu> <kernel_function_name> [M N K]
+Usage: bash scripts/amp_check.sh <kernel.cu> <kernel_function_name> [M N K] [out.json]
 
 One-command validation for a kernel matching:
   __global__ void <kernel_function_name>(const float* A, const float* B,
@@ -123,11 +124,15 @@ if [ ! -x "$VALIDATOR" ]; then
     bash "$SCRIPT_DIR/build_auto.sh" >/dev/null
 fi
 
-DUMP="$PROJECT_DIR/${SUFFIX}_dump.json"
+# Named after the kernel function, not just the vendor -- otherwise
+# checking two different kernels on the same machine silently overwrites
+# the first result (and collides with amp_parity_dump's own
+# cuda_dump.json/hip_dump.json default names).
+DUMP="${OUT_OVERRIDE:-$PROJECT_DIR/${KERNEL_FN}_${SUFFIX}_dump.json}"
 echo "=== Validating against CPU reference (M=$M N=$N K=$K) ==="
 "$VALIDATOR" "$LIB" "$DUMP" "$M" "$N" "$K"
 
 echo ""
 echo "Dump written to: $DUMP"
 echo "Run this same command on the other vendor's machine, then:"
-echo "  python3 scripts/parity_check.py cuda_dump.json hip_dump.json --analyze"
+echo "  python3 scripts/parity_check.py <cuda_dump> <hip_dump> --analyze"
