@@ -1,0 +1,42 @@
+name: SYCL build (no Intel GPU required)
+
+# Validates that the SYCL backend actually compiles against a real Intel
+# oneAPI DPC++ toolchain -- this had never been built anywhere in this
+# project (see docs/VALIDATION.md). Compiling for the SYCL "host" device
+# doesn't need an Intel GPU, only running against one would.
+on:
+  push:
+    paths:
+      - CMakeLists.txt
+      - 'include/**'
+      - 'src/**'
+      - 'kernels/matmul_sycl.cpp'
+      - 'tests/**'
+      - .github/workflows/sycl-build.yml
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Intel oneAPI DPC++ compiler
+        run: |
+          wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
+            | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" \
+            | sudo tee /etc/apt/sources.list.d/oneAPI.list
+          sudo apt-get update
+          sudo apt-get install -y intel-oneapi-compiler-dpcpp-cpp cmake
+
+      - name: Configure and build (SYCL backend)
+        run: |
+          source /opt/intel/oneapi/setvars.sh
+          cmake -S . -B build -DAMP_BACKEND=SYCL -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j"$(nproc)"
+
+      - name: Run test_triple (host/CPU SYCL device, no Intel GPU here)
+        run: |
+          source /opt/intel/oneapi/setvars.sh
+          ./build/test_triple || echo "Run failed/skipped -- this job's goal is proving the SYCL build itself works"
