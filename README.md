@@ -22,7 +22,7 @@ tile             A GFLOPS   B GFLOPS  B/A ratio  max_rel_err  status
 ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
 ```
 
-That's real hardware output, not a mock. Getting here took 10 real bugs
+That's real hardware output, not a mock. Getting here took 15 real bugs
 found and fixed along the way. Full log: [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## What it does

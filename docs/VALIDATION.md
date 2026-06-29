@@ -179,7 +179,7 @@ touch one backend:
 ## Cost vs. the alternative
 
 This entire validation pass, building the HIP backend and Docker image
-for the first time, finding and fixing 10 real bugs, and producing a
+for the first time, finding and fixing 15 real bugs, and producing a
 verified cross-vendor parity result, took roughly an hour of MI300X
 rental (about $2.19/hr on RunPod) plus a free Colab T4 session and free
 GitHub Actions minutes. The alternative is trusting an unverified port in
