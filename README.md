@@ -88,7 +88,17 @@ crash." Why this tradeoff, and what it doesn't catch:
 AMD ships HIPIFY (mechanical transpile) and the ROCm Validation Suite
 (install health) — neither proves the transpiled kernel is *numerically
 correct* or how far off it is in performance. That gap is this tool.
-Business case and prior art: [docs/VALIDATION.md](docs/VALIDATION.md).
+
+The gap is widening, not closing: AI coding agents can now port a CUDA
+backend to ROCm directly, skipping HIPIFY entirely — [one widely-shared
+example ported a full backend in ~30
+minutes](https://techstrong.ai/features/claude-code-ports-nvidia-cuda-to-amd-rocm-in-30-minutes/).
+That same coverage flags the obvious next question: *"a 30-minute port
+doesn't prove [it] can handle production-grade, performance-critical GPU
+workloads."* Faster porting makes unverified ports more common, not
+less — AMP is the check that catches what a fast port (human-written or
+AI-assisted) gets numerically wrong. Business case and prior art:
+[docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## What's still open
 
