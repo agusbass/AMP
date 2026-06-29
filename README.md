@@ -89,6 +89,17 @@ AMD ships HIPIFY (mechanical transpile) and the ROCm Validation Suite
 (install health) — neither proves the transpiled kernel is *numerically
 correct* or how far off it is in performance. That gap is this tool.
 
+HIPIFY does exactly what it's documented to do — rewrite `cuda*` calls
+to `hip*` — and nothing more. It can't know that NVIDIA's 32-thread warp
+and AMD CDNA's 64-thread wavefront mean a warp-level shuffle/reduction
+that's correct on one is silently wrong on the other ([HIP porting
+guide](https://rocm.docs.amd.com/projects/HIP/en/docs-5.7.0/user_guide/hip_porting_guide.html)) —
+the exact bug class `kernels/flash_attn.cu`'s
+`warp_reduce_max`/`warp_reduce_sum` guard against with vendor-specific
+shuffle intrinsics. A transpile can compile clean and still be wrong in
+a way nothing short of running it catches. That's the check this tool
+performs.
+
 The gap is widening, not closing: AI coding agents can now port a CUDA
 backend to ROCm directly, skipping HIPIFY entirely — [one widely-shared
 example ported a full backend in ~30
