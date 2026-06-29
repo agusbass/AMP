@@ -77,9 +77,10 @@ def diagnose(code: str, tile: str):
         Path(tmp_path).unlink(missing_ok=True)
 
 
-with gr.Blocks(title="AMP — CUDA to AMD kernel diagnosis") as demo:
+with gr.Blocks(title="AMP — AMD Migration Platform") as demo:
     gr.Markdown(
-        "# 🛠️ AMP — instant CUDA→AMD kernel diagnosis\n"
+        "# 🛠️ AMP — AMD Migration Platform\n"
+        "### Instant CUDA→AMD kernel diagnosis\n"
         "**New here?** A buggy kernel is already loaded below — just click "
         "**Diagnose for AMD**. No GPU, no compiler, no setup.\n\n"
         "Have your own kernel? Paste it in and click the same button. "
