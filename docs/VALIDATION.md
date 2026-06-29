@@ -144,11 +144,16 @@ touch one backend:
   environment was available on any rented hardware used in this
   project. `build_auto.sh`'s SYCL detection branch has never been
   exercised at all.
-- **`scripts/amp_check.sh` on the CUDA/NVIDIA side specifically**: the
-  HIP/MI300X side is verified (see above, including the include-order
-  bug that fix surfaced). The Colab notebook has cells that exercise it
-  on CUDA, but no run's output for that specific cell has been captured
-  and confirmed.
+- **`scripts/amp_check.sh` on the CUDA/NVIDIA side**: ✅ closed.
+  `bash scripts/amp_check.sh my_kernel.cu my_naive_gemm 512 512 512` on
+  a real Tesla T4 (Colab): `Detected: NVIDIA (nvcc)` ...
+  `max_rel_err=0.000450 vs CPU reference PASS`, the same error metric
+  as the MI300X run. Also caught and fixed a second real bug in the
+  process: the script always wrote to a fixed `cuda_dump.json`/
+  `hip_dump.json`, colliding with `amp_parity_dump`'s own default
+  filenames and silently overwriting results when checking two
+  different kernels in sequence — confirmed fixed by the output
+  filename in this run: `my_naive_gemm_cuda_dump.json`.
 
 ## Cost vs. the alternative
 

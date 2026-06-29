@@ -95,5 +95,4 @@ Business case and prior art: [docs/VALIDATION.md](docs/VALIDATION.md).
 - `scripts/amp_pipeline.sh` is syntax-checked, not yet run end-to-end on real hardware.
 - `docker run` with real GPU device passthrough is unverified — attempted on a RunPod pod, blocked by that environment's nested-container networking limits (CI only proves `docker build` succeeds).
 - SYCL backend is completely untested — no Intel oneAPI environment used in this project.
-- `scripts/amp_check.sh` on the CUDA/NVIDIA side specifically isn't confirmed (HIP side is — see [docs/VALIDATION.md](docs/VALIDATION.md)).
 - FP8 kernel path untested (validation images lacked `hip_fp8.h`).
