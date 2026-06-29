@@ -1,4 +1,4 @@
-# 🛠️ AMP — AMD Migration Platform
+# 🛠️ AMP — CUDA ↔ ROCm Parity Check
 
 **Validates that your CUDA kernel and its HIP port produce the same numbers — so trying AMD Instinct is a same-day decision, not a multi-week migration project.**
 

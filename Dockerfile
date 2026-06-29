@@ -1,13 +1,10 @@
-# AMP — AMD Migration Platform
-# Docker image for the AMD Developer Hackathon ACT II (Track 3 Unicorn)
+# AMP — CUDA <-> ROCm Parity Check
 # Target: AMD ROCm 6.x on Instinct MI300X
 
 FROM rocm/dev-ubuntu-22.04:6.3.2-complete AS base
 
-LABEL maintainer="AMD Hackathon Participant"
-LABEL description="AMP — AMD Migration Platform: Multi-vendor GPU Runtime"
-LABEL hackathon="AMD Developer Hackathon ACT II"
-LABEL track="3 - Unicorn"
+LABEL maintainer="agusbass"
+LABEL description="AMP — CUDA <-> ROCm Parity Check: Multi-vendor GPU Runtime"
 
 WORKDIR /opt/amp
 
