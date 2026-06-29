@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AMP Spaces — paste a CUDA/HIP kernel, get a CUDA->AMD diagnosis and
+"""AMP Spaces: paste a CUDA/HIP kernel, get a CUDA->AMD diagnosis and
 mechanical fix instantly, in the browser.
 
 This is a UI shell around the exact same tested logic CLI users run
@@ -53,7 +53,7 @@ def diagnose(code: str, tile: str):
             sev = p.get("severity", "info")
             report_lines.append(
                 f"**{SEVERITY_BADGE.get(sev, sev.upper())}** "
-                f"line {fnd.line} — {p.get('name', fnd.pattern_id)}\n\n"
+                f"line {fnd.line}: {p.get('name', fnd.pattern_id)}\n\n"
                 f"> `{fnd.code}`\n\n"
                 f"{fnd.extra or p.get('description', '')}\n"
             )
@@ -69,7 +69,7 @@ def diagnose(code: str, tile: str):
             for u in r["unfixable_findings"]:
                 report_lines.append(
                     f"- line {u['line']} ({u['pattern_id']}): {u['description']} "
-                    f"— *{u['suggestion']}*"
+                    f"(*{u['suggestion']}*)"
                 )
 
         return "\n".join(report_lines), diff_text, fixed_code
@@ -77,11 +77,11 @@ def diagnose(code: str, tile: str):
         Path(tmp_path).unlink(missing_ok=True)
 
 
-with gr.Blocks(title="AMP — CUDA ↔ ROCm Parity Check") as demo:
+with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
     gr.Markdown(
-        "# 🛠️ AMP — CUDA ↔ ROCm Parity Check\n"
-        "### Instant CUDA→AMD kernel diagnosis\n"
-        "**New here?** A buggy kernel is already loaded below — just click "
+        "# 🛠️ AMP: CUDA-ROCm Parity Check\n"
+        "### Instant CUDA to AMD kernel diagnosis\n"
+        "**New here?** A buggy kernel is already loaded below, so just click "
         "**Diagnose for AMD**. No GPU, no compiler, no setup.\n\n"
         "Have your own kernel? Paste it in and click the same button. "
         "Full workflow: [github.com/agusbass/AMP](https://github.com/agusbass/AMP)."
@@ -90,7 +90,7 @@ with gr.Blocks(title="AMP — CUDA ↔ ROCm Parity Check") as demo:
         with gr.Column():
             code_in = gr.Code(label="Your kernel (.cu/.cuh)", language="cpp",
                                value=EXAMPLE_BUGGY_KERNEL, lines=20)
-            tile_in = gr.Textbox(label="Tile config (BM,BN,BK) — optional",
+            tile_in = gr.Textbox(label="Tile config (BM,BN,BK), optional",
                                   value="32,16,32")
             btn = gr.Button("Diagnose for AMD", variant="primary")
         with gr.Column():

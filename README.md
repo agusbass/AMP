@@ -1,12 +1,14 @@
-# 🛠️ AMP — CUDA ↔ ROCm Parity Check
+# 🛠️ AMP: CUDA ↔ ROCm Parity Check
 
-**Validates that your CUDA kernel and its HIP port produce the same numbers — so trying AMD Instinct is a same-day decision, not a multi-week migration project.**
+*AMP stands for Accelerator Migration Parity.*
+
+**Validates that your CUDA kernel and its HIP port produce the same numbers, so trying AMD Instinct is a same-day decision instead of a multi-week migration project.**
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agusbass/AMP/blob/master/notebooks/quickstart.ipynb)
 [![Try the diagnosis UI](https://img.shields.io/badge/🤗%20Spaces-Try%20it%20live-blue)](https://agusbudiman14-amp-kernel-diagnose.hf.space/)
 
-- **Colab** → real GPU build + cross-vendor parity check, in your browser.
-- **Spaces** → paste a kernel, get a diagnosis + fix instantly, no GPU needed.
+- **Colab**: real GPU build plus a cross-vendor parity check, right in your browser.
+- **Spaces**: paste a kernel, get a diagnosis and a fix instantly, no GPU needed.
 
 ```
 Cross-vendor parity: nvidia (Tesla T4) vs amd (MI300X), M=N=K=1024
@@ -20,14 +22,14 @@ tile             A GFLOPS   B GFLOPS  B/A ratio  max_rel_err  status
 ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
 ```
 
-Real hardware, not a mock. 10 real bugs found and fixed getting here —
-[full log](docs/VALIDATION.md).
+That's real hardware output, not a mock. Getting here took 10 real bugs
+found and fixed along the way. Full log: [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## What it does
 
 1. **Validate YOUR kernel** (CUDA or HIP) against a CPU reference and a same-shape run from the other vendor.
-2. **Diagnose failures with no GPU** — static analysis + mechanical fix for the bug class that survives "compiles and doesn't crash."
-3. **Check model compatibility** (FlashAttention-2 head_dim/GQA) before touching hardware.
+2. **Diagnose failures with no GPU.** Static analysis plus a mechanical fix for the bug class that survives "compiles and doesn't crash."
+3. **Check model compatibility** (FlashAttention-2 head_dim/GQA) before you touch hardware at all.
 
 ```
   Your CUDA kernel              Your HIP kernel
@@ -78,50 +80,53 @@ python3 scripts/amp_suggest_fix.py kernels/matmul.cu kernels/matmul.cuh --tile 3
 python3 scripts/amp_fix.py fix.json --yes   # diff shown first; nothing applied without --yes
 ```
 
-Regex-based by design — zero dependencies, no GPU/compiler, runs in
-milliseconds. Catches the bug class that survives "compiles and doesn't
-crash." Why this tradeoff, and what it doesn't catch:
-[docs/VALIDATION.md](docs/VALIDATION.md).
+This is regex-based by design: zero dependencies, no GPU or compiler
+needed, runs in milliseconds. It catches the bug class that survives
+"compiles and doesn't crash." For why this tradeoff and what it
+doesn't catch, see [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## Why this, why now
 
-AMD ships HIPIFY (mechanical transpile) and the ROCm Validation Suite
-(install health) — neither proves the transpiled kernel is *numerically
-correct* or how far off it is in performance. That gap is this tool.
+AMD ships HIPIFY for mechanical transpiling and the ROCm Validation
+Suite for install health. Neither one proves the transpiled kernel is
+*numerically correct* or tells you how far off it is in performance.
+That gap is what this tool fills.
 
-HIPIFY does exactly what it's documented to do — rewrite `cuda*` calls
-to `hip*` — and nothing more. It can't know that NVIDIA's 32-thread warp
-and AMD CDNA's 64-thread wavefront mean a warp-level shuffle/reduction
-that's correct on one is silently wrong on the other ([HIP porting
-guide](https://rocm.docs.amd.com/projects/HIP/en/docs-5.7.0/user_guide/hip_porting_guide.html)) —
-the exact bug class `kernels/flash_attn.cu`'s
-`warp_reduce_max`/`warp_reduce_sum` guard against with vendor-specific
-shuffle intrinsics. A transpile can compile clean and still be wrong in
-a way nothing short of running it catches. That's the check this tool
-performs.
+HIPIFY does exactly what it's documented to do: rewrite `cuda*` calls
+to `hip*`, nothing more. It has no way to know that NVIDIA's 32-thread
+warp and AMD CDNA's 64-thread wavefront mean a warp-level
+shuffle or reduction that's correct on one vendor can be silently
+wrong on the other (see AMD's own [HIP porting
+guide](https://rocm.docs.amd.com/projects/HIP/en/docs-5.7.0/user_guide/hip_porting_guide.html)).
+That's the exact bug class `kernels/flash_attn.cu`'s
+`warp_reduce_max` and `warp_reduce_sum` already guard against with
+vendor-specific shuffle intrinsics. A transpile can compile clean and
+still be wrong in a way nothing short of actually running it would
+catch. That's the check this tool performs.
 
-Not every gap shows up as a wrong number, either. `nvcc` and `amdgcn`
-allocate registers differently — a kernel that fits entirely in
+Not every gap shows up as a wrong number either. `nvcc` and `amdgcn`
+allocate registers differently, so a kernel that fits entirely in
 registers on one vendor can spill to slow scratch memory on the other,
-quietly cutting throughput without an error or a numerical mismatch.
-`amp_parity_dump`'s GFLOPS-ratio column is what catches that: a passing
-`max_rel_err` next to a far-worse-than-expected ratio is exactly what
-register spilling looks like in this tool's output.
+quietly cutting throughput with no error and no numerical mismatch.
+That's what `amp_parity_dump`'s GFLOPS-ratio column is for: a passing
+`max_rel_err` sitting next to a far-worse-than-expected ratio is
+exactly what register spilling looks like in this tool's output.
 
-The gap is widening, not closing: AI coding agents can now port a CUDA
-backend to ROCm directly, skipping HIPIFY entirely — [one widely-shared
-example ported a full backend in ~30
-minutes](https://techstrong.ai/features/claude-code-ports-nvidia-cuda-to-amd-rocm-in-30-minutes/).
-That same coverage flags the obvious next question: *"a 30-minute port
-doesn't prove [it] can handle production-grade, performance-critical GPU
-workloads."* Faster porting makes unverified ports more common, not
-less — AMP is the check that catches what a fast port (human-written or
-AI-assisted) gets numerically wrong. Business case and prior art:
+The gap is widening rather than closing, too. AI coding agents can now
+port a CUDA backend to ROCm directly, skipping HIPIFY entirely. [One
+widely-shared example ported a full backend in about 30
+minutes](https://techstrong.ai/features/claude-code-ports-nvidia-cuda-to-amd-rocm-in-30-minutes/),
+and the same coverage flags the obvious follow-up question: *"a
+30-minute port doesn't prove [it] can handle production-grade,
+performance-critical GPU workloads."* Faster porting just means
+unverified ports happen more often, not less often. AMP is the check
+that catches what a fast port, whether human-written or AI-assisted,
+gets numerically wrong. For the full business case and prior art, see
 [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## What's still open
 
-- `scripts/amp_pipeline.sh` is syntax-checked, not yet run end-to-end on real hardware.
-- `docker run` with real GPU device passthrough is unverified — attempted on a RunPod pod, blocked by that environment's nested-container networking limits (CI only proves `docker build` succeeds).
-- SYCL backend is completely untested — no Intel oneAPI environment used in this project.
-- FP8 kernel path untested (validation images lacked `hip_fp8.h`).
+- `scripts/amp_pipeline.sh` is syntax-checked but hasn't been run end-to-end on real hardware yet.
+- `docker run` with real GPU device passthrough is unverified. It was attempted on a RunPod pod and blocked by that environment's nested-container networking limits (CI only proves `docker build` succeeds).
+- The SYCL backend is completely untested since no Intel oneAPI environment was available in this project.
+- The FP8 kernel path is untested because the validation images used didn't have `hip_fp8.h`.
