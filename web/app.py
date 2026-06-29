@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AMP Spaces: paste a CUDA/HIP kernel, get a CUDA->AMD diagnosis and
+"""AMP Spaces: paste a CUDA/HIP kernel, get a CUDA-to-ROCm diagnosis and
 mechanical fix instantly, in the browser.
 
 This is a UI shell around the exact same tested logic CLI users run
@@ -80,9 +80,9 @@ def diagnose(code: str, tile: str):
 with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
     gr.Markdown(
         "# 🛠️ AMP: CUDA-ROCm Parity Check\n"
-        "### Instant CUDA to AMD kernel diagnosis\n"
+        "### Instant CUDA to ROCm kernel diagnosis\n"
         "**New here?** A buggy kernel is already loaded below, so just click "
-        "**Diagnose for AMD**. No GPU, no compiler, no setup.\n\n"
+        "**Diagnose**. No GPU, no compiler, no setup.\n\n"
         "Have your own kernel? Paste it in and click the same button. "
         "Full workflow: [github.com/agusbass/AMP](https://github.com/agusbass/AMP)."
     )
@@ -92,7 +92,7 @@ with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
                                value=EXAMPLE_BUGGY_KERNEL, lines=20)
             tile_in = gr.Textbox(label="Tile config (BM,BN,BK), optional",
                                   value="32,16,32")
-            btn = gr.Button("Diagnose for AMD", variant="primary")
+            btn = gr.Button("Diagnose", variant="primary")
         with gr.Column():
             findings_out = gr.Markdown(label="Findings")
             diff_out = gr.Code(label="Suggested fix (unified diff)")
