@@ -7,7 +7,7 @@ Usage:
 Each dump is produced by `amp_parity_dump` (tests/parity_dump.cpp), run once
 on NVIDIA hardware (CUDA build) and once on AMD hardware (HIP build), with
 identical shapes/seed. This script does NOT re-derive correctness from a CPU
-reference — both dumps already carry max_rel_err_vs_cpu for that. Its job is
+reference; both dumps already carry max_rel_err_vs_cpu for that. Its job is
 the comparison neither vendor's own correctness check can do on its own:
 diffing the two vendors' actual outputs against each other, and reporting the
 GFLOPS gap per kernel tile config.
@@ -25,7 +25,7 @@ if sys.platform == "win32":
 REL_ERR_THRESHOLD = 1e-3
 
 # Default kernel sources to statically scan when a tile config fails parity
-# (see amp_diagnose.py / futurework.md V2.1 — auto-diagnosis, not auto-fix).
+# (see amp_diagnose.py: auto-diagnosis, not auto-fix).
 DEFAULT_DIAGNOSE_SOURCES = ["kernels/matmul.cu", "kernels/matmul.cuh"]
 
 

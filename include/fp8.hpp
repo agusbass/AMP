@@ -1,13 +1,12 @@
 // fp8.hpp - host-side FP8 conversion utilities
 // FP8 E4M3: range ~[-448, 448], mantissa 3 bit, exponent 4 bit (bias=7)
 // FP8 E5M2: range ~[-57344, 57344], mantissa 2 bit, exponent 5 bit (bias=15)
-// Used for test data initialization and scale computation.
+// Used for test data initialization and round-trip checks.
 // Device-side casting is performed by hardware WMMA intrinsics.
 #pragma once
 #include <cstdint>
 #include <cmath>
 #include <limits>
-#include <vector>
 
 namespace AMP {
 namespace fp8 {
@@ -109,27 +108,6 @@ inline uint8_t f32_to_e5m2(float v) {
     if (m >= 4) { m = 0; e++; }
     if (e >= 31) return sign | 0x7C;
     return sign | (e << 2) | m;
-}
-
-// ---- Bulk conversion helpers (host) ----
-inline void f32_to_e4m3_bulk(const float* src, uint8_t* dst, size_t n) {
-    for (size_t i = 0; i < n; ++i) dst[i] = f32_to_e4m3(src[i]);
-}
-inline void e4m3_to_f32_bulk(const uint8_t* src, float* dst, size_t n) {
-    for (size_t i = 0; i < n; ++i) dst[i] = e4m3_to_f32(src[i]);
-}
-inline void f32_to_e5m2_bulk(const float* src, uint8_t* dst, size_t n) {
-    for (size_t i = 0; i < n; ++i) dst[i] = f32_to_e5m2(src[i]);
-}
-
-// Compute scale factor so the tensor fits the FP8 E4M3 range [-448, 448]
-inline float compute_fp8_scale(const float* data, size_t n) {
-    float amax = 0.0f;
-    for (size_t i = 0; i < n; ++i) {
-        float a = std::fabs(data[i]);
-        if (a > amax) amax = a;
-    }
-    return (amax > 0.0f) ? 448.0f / amax : 1.0f;
 }
 
 } // namespace fp8

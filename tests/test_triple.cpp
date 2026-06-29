@@ -3,7 +3,6 @@
 #include "pool.hpp"
 #include "cache.hpp"
 #include "fp8.hpp"
-#include "quant.hpp"
 #include "collective.hpp"
 #include "scheduler.hpp"
 #include "speculative.hpp"

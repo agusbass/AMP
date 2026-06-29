@@ -1,14 +1,14 @@
 #!/bin/bash
-# amp_pipeline.sh - V4: auto-build -> auto-test -> auto-diagnose -> (optional)
-# auto-fix, chained into one command (futurework.md's "Auto-Healing Pipeline").
+# amp_pipeline.sh - chains auto-build, auto-test, auto-diagnose, and
+# optional auto-fix into one command.
 #
 # This only orchestrates pieces AMP already has locally:
 #   build_auto.sh -> amp_verify_matmul -> amp_diagnose.py -> amp_suggest_fix.py
 #   -> amp_fix.py -> rebuild -> re-verify
-# It does NOT do the HIPIFY transpile step from futurework's diagram (that is
-# a separate AMD-provided tool, out of scope for this repo) and it does NOT
-# apply any source change without a human confirming it first, even with
-# --auto-fix (see the honesty note in futurework.md about auto-fix risk).
+# It does NOT do the HIPIFY transpile step (that is a separate AMD-provided
+# tool, out of scope for this repo) and it does NOT apply any source change
+# without a human confirming it first, even with --auto-fix, since a wrong
+# auto-fix can break a kernel that was already correct.
 #
 # Usage:
 #   bash scripts/amp_pipeline.sh                  # build + verify only

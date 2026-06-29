@@ -121,7 +121,7 @@ def print_report(name, cfg, head_dim, checks):
         print(f"Result: COMPATIBLE -- AMP's FlashAttention-2 kernel can serve "
               f"{name}'s attention shapes as written.")
     else:
-        print(f"Result: NOT COMPATIBLE AS-IS -- see FAIL line(s) above.")
+        print("Result: NOT COMPATIBLE AS-IS -- see FAIL line(s) above.")
     print()
     print("This only checks the constraints above against published config "
           "numbers; it does not run the kernel. Use amp_verify_matmul / "

@@ -1,5 +1,5 @@
 {
-  "_comment": "GPU kernel bug pattern database for amp_diagnose.py (futurework.md V2.1). Each pattern is a heuristic, not a proof — it points at suspicious code for a human to check, the same way a linter does.",
+  "_comment": "GPU kernel bug pattern database for amp_diagnose.py. Each pattern is a heuristic, not a proof. It points at suspicious code for a human to check, the same way a linter does.",
   "patterns": [
     {
       "id": "shared_mem_dim_mismatch",

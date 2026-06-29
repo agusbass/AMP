@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""amp_suggest_fix.py - V2.2: turn an amp_diagnose.py finding into a concrete
+"""amp_suggest_fix.py - turn an amp_diagnose.py finding into a concrete
 suggested fix.
 
 For the two pattern types that have an unambiguous structural repair
@@ -14,10 +14,9 @@ already attached to the pattern in bug_patterns.json - no fix is fabricated.
 If ANTHROPIC_API_KEY is set, each non-mechanically-fixable finding's
 explanation is additionally expanded in natural language via the Claude API.
 This is optional and the tool degrades to the deterministic output above
-when no key is present - see the honesty note in futurework.md: a fix
-fabricated without a clear structural reason is exactly the failure mode the
-project wants to avoid, so this tool never invents a diff it can't justify
-from the kernel's own declared shapes.
+when no key is present. A fix fabricated without a clear structural reason
+is exactly the failure mode this project wants to avoid, so this tool never
+invents a diff it can't justify from the kernel's own declared shapes.
 
 Usage:
     python3 scripts/amp_suggest_fix.py kernels/matmul.cu kernels/matmul.cuh --tile 32,16,32

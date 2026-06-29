@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Tests for scripts/amp_diagnose.py — pure static analysis, no GPU/compiler
+"""Tests for scripts/amp_diagnose.py. Pure static analysis, no GPU/compiler
 needed. Locks in two things:
   1. The real (already-fixed) matmul kernel produces no HIGH severity finding
      for any of its 4 supported tile configs (no false positives).
-  2. A deliberately broken fixture, recreating the historical bug class
-     described in futurework.md, is actually caught (no false negatives).
+  2. A deliberately broken fixture, recreating a known shared-memory
+     dimension-mismatch plus missing-syncthreads bug class, is actually
+     caught (no false negatives).
 
 Run: python3 tests/test_diagnose.py
 """

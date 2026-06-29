@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-"""amp_diagnose.py - static auto-diagnosis for AMP GPU kernels (futurework.md V2.1).
+"""amp_diagnose.py - static auto-diagnosis for AMP GPU kernels.
 
 Given a numerical mismatch from amp_verify_matmul or parity_check.py, this
-tool does NOT re-run anything on the GPU — it statically scans the kernel
+tool does NOT re-run anything on the GPU. It statically scans the kernel
 source for known bug *patterns* (see scripts/bug_patterns.json) and points at
 the specific lines worth checking by hand, the same way a linter would.
 
-It cannot prove a kernel is buggy or automatically fix it (see the honesty
-note in futurework.md: GPU numerical error is statistical, not logical, and
-a wrong auto-fix can break correct code). It only narrows down where to look.
+It cannot prove a kernel is buggy or automatically fix it. GPU numerical
+error is statistical, not logical, and a wrong auto-fix can break correct
+code, so this only narrows down where to look (see docs/VALIDATION.md for
+why this tradeoff and what it doesn't catch).
 
 Coverage: the dimension-mismatch and missing-__syncthreads() checks rely on
 statically-declared 2D shared arrays (`__shared__ T name[D1][D2]`) indexed
-with `name[i][j]` — the idiom matmul.cu/.cuh use. Kernels that use dynamic
+with `name[i][j]`, the idiom matmul.cu/.cuh use. Kernels that use dynamic
 shared memory with pointer arithmetic (flash_attn.cu's `extern __shared__`
-+ lambda accessors) are scanned without error but won't trigger those two
+plus lambda accessors) are scanned without error but won't trigger those two
 checks; only the tile-size check applies there.
 
 Usage:
@@ -26,7 +27,7 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 if sys.platform == "win32":
@@ -165,7 +166,7 @@ def detect_sync_issues(lines, lo, hi, shared_names, file, findings):
 def detect_bank_conflict(lines, lo, hi, decl, file, tile_values, findings):
     if not tile_values:
         return
-    name, d1, d2 = decl["name"], decl["d1"], decl["d2"]
+    name, d2 = decl["name"], decl["d2"]
     if d2 is None:
         return
     d2_val = tile_values.get(d2)

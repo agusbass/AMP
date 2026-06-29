@@ -121,7 +121,7 @@ def main():
         f.write(content)
 
     print(f"Wrote {out_path}")
-    print(f"Next: edit the two TODOs inside (point at your real kernel, set launch config), then:")
+    print("Next: edit the two TODOs inside (point at your real kernel, set launch config), then:")
     print(f"  nvcc  -shared -Xcompiler -fPIC {out_path} -o lib{stem}_cuda.so")
     print(f"  ./amp_validate_kernel lib{stem}_cuda.so cuda_dump.json {m} {n} {k}")
     return 0

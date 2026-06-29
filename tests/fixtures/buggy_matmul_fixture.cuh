@@ -1,7 +1,7 @@
 // buggy_matmul_fixture.cuh - intentionally broken kernel, used ONLY to test
 // scripts/amp_diagnose.py's static analyzer (see tests/test_diagnose.py).
-// This recreates the historical AMP bug class described in futurework.md:
-// shared-memory dimension mismatch + a missing __syncthreads().
+// This recreates a known bug class: shared-memory dimension mismatch
+// plus a missing __syncthreads().
 #pragma once
 
 template<int BM, int BN, int BK>

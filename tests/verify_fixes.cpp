@@ -16,7 +16,6 @@
 #endif
 
 #include "fp8.hpp"
-#include "quant.hpp"
 #include "autotune_sh.hpp"
 #include <cstdio>
 #include <cmath>
@@ -45,13 +44,6 @@ int main() {
         } else {
             printf("PASS: fp8 E4M3 [256,448) round-trip (%d distinct codes, max err <=10%%)\n", distinct_codes);
         }
-    }
-
-    // ---- quant.hpp: confirm std::max/std::min (via <algorithm>) resolve ----
-    {
-        auto cfg = AMP::QuantMode::INT8_PER_TENSOR;
-        (void)cfg;
-        printf("PASS: quant.hpp compiles and links (std::max/min via <algorithm> resolved)\n");
     }
 
     // ---- autotune_sh.hpp: empty candidates must throw, not UB-crash ----
