@@ -26,8 +26,8 @@ namespace AMP {
 #ifdef AMP_HAVE_XMX
 
 static void gemm_xmx_bf16(sycl::queue& q,
-                            const sycl::bfloat16* A,
-                            const sycl::bfloat16* B,
+                            const AMP_bf16* A,
+                            const AMP_bf16* B,
                             float* C,
                             int M, int N, int K)
 {
@@ -56,14 +56,14 @@ static void gemm_xmx_bf16(sycl::queue& q,
 
                 for (int k = 0; k < K; k += TK) {
                     // Load A tile [m_tile*TM, k] → [+TM, +TK]
-                    joint_matrix<sycl::bfloat16, use::a, TM, TK,
+                    joint_matrix<AMP_bf16, use::a, TM, TK,
                                  layout::row_major> a_mat;
                     joint_matrix_load(sg, a_mat,
                         A + m_tile * TM * K + k, K,
                         layout::row_major);
 
                     // Load B tile [k, n_tile*TN] → [+TK, +TN]
-                    joint_matrix<sycl::bfloat16, use::b, TK, TN,
+                    joint_matrix<AMP_bf16, use::b, TK, TN,
                                  layout::row_major> b_mat;
                     joint_matrix_load(sg, b_mat,
                         B + k * N + n_tile * TN, N,
@@ -88,8 +88,8 @@ static void gemm_xmx_bf16(sycl::queue& q,
 // Analogous to matmul_fp32_kernel in CUDA, but for SYCL BF16→FP32
 // ----------------------------------------------------------------
 static void gemm_tiled_sycl(sycl::queue& q,
-                              const sycl::bfloat16* A,
-                              const sycl::bfloat16* B,
+                              const AMP_bf16* A,
+                              const AMP_bf16* B,
                               float* C,
                               int M, int N, int K)
 {
@@ -136,10 +136,10 @@ struct SyclGemmResult {
 };
 
 SyclGemmResult launch_matmul_sycl_bf16(
-    const sycl::bfloat16* dA, const sycl::bfloat16* dB, float* dC,
+    const AMP_bf16* dA, const AMP_bf16* dB, float* dC,
     int M, int N, int K, sycl::queue* q_ptr)
 {
-    sycl::queue& q = q_ptr ? *q_ptr : amp::detail::default_q();
+    sycl::queue& q = q_ptr ? *q_ptr : AMP::detail::default_q();
 
     auto t0 = std::chrono::steady_clock::now();
 #ifdef AMP_HAVE_XMX
@@ -156,10 +156,10 @@ SyclGemmResult launch_matmul_sycl_bf16(
 
 SyclGemmResult autotune_matmul_sycl_bf16(
     int M, int N, int K,
-    const sycl::bfloat16* dA, const sycl::bfloat16* dB, float* dC,
+    const AMP_bf16* dA, const AMP_bf16* dB, float* dC,
     sycl::queue* q_ptr)
 {
-    sycl::queue& q = q_ptr ? *q_ptr : amp::detail::default_q();
+    sycl::queue& q = q_ptr ? *q_ptr : AMP::detail::default_q();
     // Warmup
     launch_matmul_sycl_bf16(dA, dB, dC, M, N, K, &q);
 
@@ -176,7 +176,7 @@ SyclGemmResult autotune_matmul_sycl_bf16(
 
 bool has_xmx_support() {
     try {
-        auto dev = amp::detail::default_q().get_device();
+        auto dev = AMP::detail::default_q().get_device();
         return dev.has(sycl::aspect::ext_intel_matrix);
     } catch (...) { return false; }
 }

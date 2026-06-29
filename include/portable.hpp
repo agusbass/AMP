@@ -109,6 +109,16 @@ enum class DataType : uint8_t {
   using gpu_error_t   = int;
   using gpu_stream_t  = sycl::queue*;
   using AMP_fp16      = sycl::half;
+  // bfloat16 lives under sycl::ext::oneapi in current oneAPI releases;
+  // kernels/matmul_sycl.cpp used to reference a plain sycl::bfloat16 that
+  // doesn't exist at all, confirmed by an actual CI build against a real
+  // oneAPI DPC++ toolchain ("no type named 'bfloat16' in namespace 'sycl'").
+  #if __has_include(<sycl/ext/oneapi/bfloat16.hpp>)
+    #include <sycl/ext/oneapi/bfloat16.hpp>
+    using AMP_bf16 = sycl::ext::oneapi::bfloat16;
+  #else
+    using AMP_bf16 = sycl::half;
+  #endif
   #define AMP_VENDOR "intel"
   namespace AMP { namespace detail {
     inline sycl::queue& default_q() {
