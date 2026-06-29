@@ -82,7 +82,7 @@ with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
         "# 🛠️ AMP: CUDA-ROCm Parity Check\n"
         "### Instant CUDA to ROCm kernel diagnosis\n"
         "**New here?** A buggy kernel is already loaded below, so just click "
-        "**Diagnose**. No GPU, no compiler, no setup.\n\n"
+        "**Diagnose**.\n\n"
         "Have your own kernel? Paste it in and click the same button. "
         "Full workflow: [github.com/agusbass/AMP](https://github.com/agusbass/AMP)."
     )
