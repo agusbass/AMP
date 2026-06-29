@@ -112,6 +112,44 @@ ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
 The 15-21x ratio tracks the actual hardware gap (T4 ~8 TFLOPS FP32 vs
 MI300X ~163 TFLOPS FP32 peak), not a measurement artifact.
 
+## Audit pass: closing gaps that were claimed but never actually exercised
+
+A later review caught several claims that were true in spirit (the
+underlying code is correct) but had never actually been run, because
+every real test up to that point happened to pass or happened to only
+touch one backend:
+
+- **`parity_check.py --analyze` on a genuine FAIL**: every real
+  cross-vendor check in this log passed, so the auto-diagnose-on-FAIL
+  branch had never fired. Closed with a permanent regression test
+  (`tests/test_parity_check_analyze.py`) using two synthetic dumps with
+  a deliberately mismatched tile — confirmed FAIL is detected
+  (`exit 1`) and `--analyze` correctly invokes static diagnosis against
+  the real shipped kernel (`kernels/matmul.cuh`), reporting a legitimate
+  INFO-level bank-conflict note (not a false HIGH).
+- **CPU backend**: claimed supported (`AMP_BACKEND=CPU`) but never built
+  or run anywhere in this project. ✅ Built and ran clean on a real
+  pod (no GPU touched): `Backend: cpu`, pool/cache modules pass,
+  GPU-only modules (autotune) skip gracefully, `exit 0`.
+- **`docker run` with GPU device passthrough** (`--device=/dev/kfd
+  --device=/dev/dri`): attempted on a RunPod pod. Docker itself isn't
+  preinstalled and the daemon fails to start in that environment —
+  `iptables --wait -t nat -N DOCKER: ... Permission denied`, because
+  RunPod pods are themselves containers without the network
+  capabilities nested Docker needs. This is an infrastructure
+  limitation of that specific rental, not an AMP bug, but it means the
+  actual `docker run` GPU path remains unverified — CI only proves
+  `docker build` succeeds.
+- **SYCL backend**: still completely untested — no Intel oneAPI
+  environment was available on any rented hardware used in this
+  project. `build_auto.sh`'s SYCL detection branch has never been
+  exercised at all.
+- **`scripts/amp_check.sh` on the CUDA/NVIDIA side specifically**: the
+  HIP/MI300X side is verified (see above, including the include-order
+  bug that fix surfaced). The Colab notebook has cells that exercise it
+  on CUDA, but no run's output for that specific cell has been captured
+  and confirmed.
+
 ## Cost vs. the alternative
 
 This entire validation pass — building the HIP backend and Docker image
