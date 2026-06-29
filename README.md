@@ -93,7 +93,6 @@ Business case and prior art: [docs/VALIDATION.md](docs/VALIDATION.md).
 ## What's still open
 
 - Plugin-path parity (user's own kernel) verified on NVIDIA; HIP side pending MI300X capacity.
-- `scripts/amp_check.sh` (one-command kernel check) isn't yet run against a real `nvcc`/`hipcc` — syntax-checked only so far.
 - `scripts/amp_pipeline.sh` is syntax-checked, not yet run end-to-end on real hardware.
 - Docker's default `CMD` (auto-runs `amp_verify_matmul` on `docker run`) only has its *build* verified by CI; the GPU run itself hasn't been.
 - FP8 kernel path untested (validation images lacked `hip_fp8.h`).

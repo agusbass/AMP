@@ -131,12 +131,17 @@ compare outputs by hand.
   build/verify/parity-dump steps it runs are the same ones verified live
   on Tesla T4 above; the notebook itself (git-clone-based, no manual
   upload) has not been re-run end-to-end since that change.
-- **`scripts/amp_check.sh`** (one-command kernel check): only
-  syntax-checked and tested against its own no-compiler-found error path
-  locally — **not yet run against a real `nvcc`/`hipcc` on actual
-  hardware**. `scripts/amp_generate_wrapper.py`, which it's built on top
-  of, is unit-tested (`tests/test_generate_wrapper.py`) but only for
-  output shape, not by actually compiling the generated wrapper.
+- **`scripts/amp_check.sh`** (one-command kernel check): ✅ verified end
+  to end on a real MI300X — `bash scripts/amp_check.sh kernel.cu
+  my_bare_gemm 512 512 512` auto-detected `hipcc`, wrapped and compiled
+  the kernel, built AMP, and validated: `max_rel_err=0.000450 vs CPU
+  reference PASS`. Caught and fixed one real bug in the process: the
+  generated wrapper `#include`d the user's kernel file *before*
+  `hip_runtime.h`, so `blockIdx`/`blockDim`/`threadIdx` were undeclared
+  even though `__global__` itself parsed fine — swapped the include
+  order. `scripts/amp_generate_wrapper.py`, which it's built on top of,
+  is separately unit-tested (`tests/test_generate_wrapper.py`) for
+  output shape.
 - **Docker's default `CMD`** (runs `amp_verify_matmul` on `docker run`):
   CI only validates `docker build` (no GPU on GitHub-hosted runners), so
   the actual `docker run` path — including this default command — has
