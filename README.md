@@ -128,5 +128,5 @@ gets numerically wrong. For the full business case and prior art, see
 
 - `scripts/amp_pipeline.sh` is syntax-checked but hasn't been run end-to-end on real hardware yet.
 - `docker run` with real GPU device passthrough is unverified. It was attempted on a RunPod pod and blocked by that environment's nested-container networking limits (CI only proves `docker build` succeeds).
-- The SYCL backend is completely untested since no Intel oneAPI environment was available in this project.
+- The SYCL backend's build is now verified via CI against a real Intel oneAPI DPC++ toolchain (see [docs/VALIDATION.md](docs/VALIDATION.md)). Running it against real Intel GPU hardware is still open since none was available in this project.
 - The FP8 kernel path is untested because the validation images used didn't have `hip_fp8.h`.

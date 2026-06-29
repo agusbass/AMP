@@ -143,10 +143,28 @@ touch one backend:
   limitation of that specific rental, not an AMP bug, but it means the
   actual `docker run` GPU path remains unverified. CI only proves
   `docker build` succeeds.
-- **SYCL backend**: still completely untested. No Intel oneAPI
-  environment was available on any rented hardware used in this
-  project. `build_auto.sh`'s SYCL detection branch has never been
-  exercised at all.
+- **SYCL backend**: build now verified via a dedicated CI workflow
+  (`.github/workflows/sycl-build.yml`) that installs Intel's official
+  oneAPI DPC++ compiler via apt and builds against it, no Intel GPU
+  needed to compile. The first real build surfaced 3 more bugs:
+  `build_auto.sh`'s SYCL branch never set `CMAKE_CXX_COMPILER`, so CMake
+  silently used the system default (g++) instead of `icpx`, which then
+  rejected the `-fsycl` flag `add_sycl_to_target()` adds (fixed by
+  setting `-DCMAKE_CXX_COMPILER=icpx` when `icpx`/`dpcpp` is found);
+  `kernels/matmul_sycl.cpp` referenced a plain `sycl::bfloat16` that
+  doesn't exist in current oneAPI releases (the real type lives under
+  `sycl::ext::oneapi::bfloat16`, now exposed as a proper `AMP_bf16`
+  type alias in `portable.hpp`, matching every other backend's
+  pattern); and the same file called `amp::detail::default_q()` with a
+  lowercase namespace when the actual namespace is `AMP` (uppercase),
+  confirmed against the correct usage in `src/device.cpp`. With all
+  three fixed, the build succeeds end to end, and `test_triple`
+  correctly throws `No device of requested type 'info::device_type::gpu'
+  available` and aborts. That's expected on a GPU-less CI runner and
+  proof the *build* works independent of Intel GPU availability, the
+  same precedent as the Docker and CPU-backend validation above.
+  Running this backend against real Intel GPU hardware (Arc/Xe-HPC/
+  Gaudi) is still open since none was available in this project.
 - **`scripts/amp_check.sh` on the CUDA/NVIDIA side**: closed.
   `bash scripts/amp_check.sh my_kernel.cu my_naive_gemm 512 512 512` on
   a real Tesla T4 (Colab): `Detected: NVIDIA (nvcc)` followed by
