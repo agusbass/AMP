@@ -48,7 +48,18 @@ elif command -v rocm-smi >/dev/null 2>&1 || [ -d /opt/rocm ]; then
 elif command -v sycl-ls >/dev/null 2>&1; then
     BACKEND="SYCL"
     echo "✅ Intel oneAPI/SYCL detected"
-    command -v sycl-ls >/dev/null 2>&1 && sycl-ls 2>/dev/null | grep -qi gpu && EXTRA_FLAGS+=("-DAMP_HAVE_XMX=ON")
+    # find_package(IntelSYCL) alone doesn't make CMake actually invoke the
+    # SYCL compiler -- without this, CMake silently keeps the system
+    # default (g++/clang++), which then chokes on the -fsycl flag
+    # add_sycl_to_target() adds in CMakeLists.txt. Confirmed by running
+    # this exact build in CI: "c++: error: unrecognized command-line
+    # option '-fsycl'".
+    if command -v icpx >/dev/null 2>&1; then
+        EXTRA_FLAGS+=("-DCMAKE_CXX_COMPILER=icpx")
+    elif command -v dpcpp >/dev/null 2>&1; then
+        EXTRA_FLAGS+=("-DCMAKE_CXX_COMPILER=dpcpp")
+    fi
+    sycl-ls 2>/dev/null | grep -qi gpu && EXTRA_FLAGS+=("-DAMP_HAVE_XMX=ON")
 
 else
     BACKEND="CPU"
