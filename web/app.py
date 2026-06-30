@@ -2,12 +2,6 @@
 """AMP Spaces: paste a CUDA/HIP kernel, get a CUDA-to-ROCm diagnosis and
 mechanical fix instantly, in the browser.
 
-This is a UI shell around the exact same tested logic CLI users run
-(scripts/amp_diagnose.py's analyze_file, scripts/amp_suggest_fix.py's
-suggest) -- no new diagnosis logic lives here, only presentation. The
-two pasted-code paths write to a temp file and call the same functions
-tests/test_diagnose.py and tests/test_suggest_fix.py already cover.
-
 Run:
     pip install -r web/requirements.txt
     python3 web/app.py
@@ -27,7 +21,13 @@ sys.path.insert(0, str(_scripts))
 import amp_diagnose  # noqa: E402
 import amp_suggest_fix  # noqa: E402
 
+_root = _here if (_here / "tests").exists() else _here.parent
+EXAMPLE_BUGGY_KERNEL = (_root / "tests" / "fixtures" / "buggy_matmul_fixture.cuh").read_text(encoding="utf-8")
+
+SEVERITY_BADGE = {"high": "🔴 HIGH", "info": "🔵 INFO"}
+
 _fw_client = None
+
 
 def _get_fw_client():
     global _fw_client
@@ -67,20 +67,15 @@ def ai_explain(kernel_code: str, findings_text: str) -> str:
     )
     return resp.choices[0].message.content
 
-_root = _here if (_here / "tests").exists() else _here.parent
-EXAMPLE_BUGGY_KERNEL = (_root / "tests" / "fixtures" / "buggy_matmul_fixture.cuh").read_text(encoding="utf-8")
-
-SEVERITY_BADGE = {"high": "🔴 HIGH", "info": "🔵 INFO"}
-
 
 def diagnose(code: str, tile: str):
     if not code.strip():
-        return "Paste a kernel first.", "", code, ""
+        return "Paste a kernel first.", "", "", ""
 
     tile_values = amp_diagnose.parse_tile_arg(tile.strip()) if tile.strip() else None
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".cuh", delete=False,
-                                      encoding="utf-8") as f:
+                                     encoding="utf-8") as f:
         f.write(code)
         tmp_path = f.name
 
@@ -89,8 +84,7 @@ def diagnose(code: str, tile: str):
         findings = amp_diagnose.analyze_file(tmp_path, tile_values)
 
         if not findings:
-            return ("✅ No suspicious patterns found by static analysis.",
-                    "", code, "")
+            return "✅ No suspicious patterns found by static analysis.", "", "", ""
 
         report_lines = []
         for fnd in findings:
@@ -128,32 +122,77 @@ def diagnose(code: str, tile: str):
         Path(tmp_path).unlink(missing_ok=True)
 
 
+def save_fixed(fixed_code: str):
+    if not fixed_code.strip():
+        return None
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".cuh",
+                                      delete=False, encoding="utf-8",
+                                      prefix="amp_fixed_")
+    tmp.write(fixed_code)
+    tmp.close()
+    return tmp.name
+
+
 with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
     gr.Markdown(
         "# 🛠️ AMP: CUDA-ROCm Parity Check\n"
-        "### Instant CUDA to ROCm kernel diagnosis\n"
-        "**New here?** A buggy kernel is already loaded below, so just click "
-        "**Diagnose**.\n\n"
-        "Have your own kernel? Paste it in and click the same button. "
+        "### Instant CUDA to ROCm kernel diagnosis, powered by Fireworks AI\n"
+        "**New here?** A buggy kernel is already loaded. Click **Diagnose** to run.\n\n"
+        "Have your own kernel? Click **Clear**, paste it in, then click **Diagnose**. "
         "Full workflow: [github.com/agusbass/AMP](https://github.com/agusbass/AMP)."
     )
+
     with gr.Row():
-        with gr.Column():
-            code_in = gr.Code(label="Your kernel (.cu/.cuh)", language="cpp",
-                               value=EXAMPLE_BUGGY_KERNEL, lines=20)
-            tile_in = gr.Textbox(label="Tile config (BM,BN,BK), optional",
-                                  value="32,16,32")
+        # --- LEFT: input ---
+        with gr.Column(scale=1):
+            code_in = gr.Code(
+                label="Your kernel (.cu / .cuh)",
+                language="cpp",
+                value=EXAMPLE_BUGGY_KERNEL,
+                lines=22,
+            )
+            with gr.Row():
+                clear_btn = gr.Button("Clear (paste your own)", variant="secondary", size="sm")
+                tile_in = gr.Textbox(label="Tile (BM,BN,BK)", value="32,16,32", scale=1)
             btn = gr.Button("Diagnose", variant="primary")
-        with gr.Column():
-            findings_out = gr.Markdown(label="Findings")
-            diff_out = gr.Code(label="Suggested fix (unified diff)", value="")
-            fixed_out = gr.Code(label="Fixed kernel", language="cpp", value="")
 
-    with gr.Accordion("AI Explanation (powered by Fireworks AI)", open=True):
-        ai_out = gr.Markdown(label="AI Explanation")
+        # --- RIGHT: output ---
+        with gr.Column(scale=1):
+            findings_out = gr.Markdown("_Click Diagnose to see findings._")
+            diff_out = gr.Textbox(
+                label="Suggested fix (unified diff)",
+                lines=8,
+                interactive=False,
+                show_copy_button=True,
+            )
+            with gr.Row():
+                fixed_out = gr.Textbox(
+                    label="Fixed kernel",
+                    lines=12,
+                    interactive=False,
+                    show_copy_button=True,
+                )
+            download_btn = gr.DownloadButton("Download fixed kernel (.cuh)", visible=False)
 
-    btn.click(diagnose, inputs=[code_in, tile_in],
-              outputs=[findings_out, diff_out, fixed_out, ai_out])
+    with gr.Accordion("AI Explanation (powered by Fireworks AI / Llama-3-70B)", open=True):
+        ai_out = gr.Markdown("_AI explanation will appear here after diagnosis._")
+
+    # wire up buttons
+    clear_btn.click(lambda: "", outputs=[code_in])
+
+    btn.click(
+        diagnose,
+        inputs=[code_in, tile_in],
+        outputs=[findings_out, diff_out, fixed_out, ai_out],
+    ).then(
+        save_fixed,
+        inputs=[fixed_out],
+        outputs=[download_btn],
+    ).then(
+        lambda code: gr.DownloadButton(visible=bool(code.strip())),
+        inputs=[fixed_out],
+        outputs=[download_btn],
+    )
 
 if __name__ == "__main__":
     demo.launch()
