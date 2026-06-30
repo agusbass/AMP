@@ -144,14 +144,15 @@ with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
 
     gr.Markdown("## Your Kernel")
     code_in = gr.Code(
-        label="Paste your .cu / .cuh file here",
+        label="Your .cu / .cuh kernel",
         language="cpp",
         value=EXAMPLE_BUGGY_KERNEL,
         lines=18,
     )
     with gr.Row():
-        clear_btn = gr.Button("Clear (paste your own)", variant="secondary", size="sm")
-        tile_in = gr.Textbox(label="Tile config (BM,BN,BK)", value="32,16,32")
+        clear_btn = gr.Button("Clear", variant="secondary", size="sm")
+        paste_btn = gr.Button("Paste", variant="secondary", size="sm")
+    tile_in = gr.Textbox(label="Tile config (BM,BN,BK)", value="32,16,32")
     btn = gr.Button("Diagnose", variant="primary", size="lg")
 
     gr.Markdown("## Findings")
@@ -178,6 +179,11 @@ with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
 
     # wire up buttons
     clear_btn.click(lambda: "", outputs=[code_in])
+    paste_btn.click(
+        None,
+        outputs=[code_in],
+        js="async () => { try { return await navigator.clipboard.readText(); } catch (e) { return ''; } }",
+    )
 
     btn.click(
         diagnose,
