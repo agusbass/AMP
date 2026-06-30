@@ -20,7 +20,10 @@ from pathlib import Path
 import gradio as gr
 from openai import OpenAI
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+# Works both locally (web/app.py -> ../scripts) and in HF Space (app.py -> ./scripts)
+_here = Path(__file__).parent
+_scripts = _here / "scripts" if (_here / "scripts").exists() else _here.parent / "scripts"
+sys.path.insert(0, str(_scripts))
 import amp_diagnose  # noqa: E402
 import amp_suggest_fix  # noqa: E402
 
