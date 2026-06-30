@@ -142,32 +142,38 @@ with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
         "Full workflow: [github.com/agusbass/AMP](https://github.com/agusbass/AMP)."
     )
 
+    gr.Markdown("## Your Kernel")
     code_in = gr.Code(
-        label="Your kernel (.cu / .cuh)",
+        label="Paste your .cu / .cuh file here",
         language="cpp",
         value=EXAMPLE_BUGGY_KERNEL,
         lines=18,
     )
     with gr.Row():
         clear_btn = gr.Button("Clear (paste your own)", variant="secondary", size="sm")
-        tile_in = gr.Textbox(label="Tile (BM,BN,BK)", value="32,16,32")
-    btn = gr.Button("Diagnose", variant="primary")
+        tile_in = gr.Textbox(label="Tile config (BM,BN,BK)", value="32,16,32")
+    btn = gr.Button("Diagnose", variant="primary", size="lg")
 
+    gr.Markdown("## Findings")
     findings_out = gr.Markdown("_Click Diagnose to see findings._")
 
+    gr.Markdown("## Suggested Fix (unified diff)")
     diff_out = gr.Textbox(
-        label="Suggested fix (unified diff)",
+        label="",
         lines=8,
         interactive=False,
     )
+
+    gr.Markdown("## Fixed Kernel")
     fixed_out = gr.Textbox(
-        label="Fixed kernel",
+        label="",
         lines=14,
         interactive=False,
     )
     download_btn = gr.DownloadButton("Download fixed kernel (.cuh)", visible=False)
 
-    with gr.Accordion("AI Explanation (powered by Fireworks AI / DeepSeek-V4-Pro)", open=True):
+    gr.Markdown("## AI Explanation")
+    with gr.Accordion("Powered by Fireworks AI / DeepSeek-V4-Pro", open=True):
         ai_out = gr.Markdown("_AI explanation will appear here after diagnosis._")
 
     # wire up buttons
