@@ -67,8 +67,8 @@ def ai_explain(kernel_code: str, findings_text: str) -> str:
     )
     return resp.choices[0].message.content
 
-EXAMPLE_BUGGY_KERNEL = (Path(__file__).parent.parent
-                         / "tests" / "fixtures" / "buggy_matmul_fixture.cuh").read_text(encoding="utf-8")
+_root = _here if (_here / "tests").exists() else _here.parent
+EXAMPLE_BUGGY_KERNEL = (_root / "tests" / "fixtures" / "buggy_matmul_fixture.cuh").read_text(encoding="utf-8")
 
 SEVERITY_BADGE = {"high": "🔴 HIGH", "info": "🔵 INFO"}
 
