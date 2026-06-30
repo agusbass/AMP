@@ -60,7 +60,7 @@ def ai_explain(kernel_code: str, findings_text: str) -> str:
     )
 
     resp = client.chat.completions.create(
-        model="accounts/fireworks/models/llama-v3p3-70b-instruct",
+        model="accounts/fireworks/models/deepseek-v4-pro",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=700,
         temperature=0.2,
