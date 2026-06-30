@@ -146,8 +146,8 @@ with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
             btn = gr.Button("Diagnose", variant="primary")
         with gr.Column():
             findings_out = gr.Markdown(label="Findings")
-            diff_out = gr.Code(label="Suggested fix (unified diff)")
-            fixed_out = gr.Code(label="Fixed kernel", language="cpp")
+            diff_out = gr.Code(label="Suggested fix (unified diff)", value="", language="diff")
+            fixed_out = gr.Code(label="Fixed kernel", language="cpp", value="")
 
     with gr.Accordion("AI Explanation (powered by Fireworks AI)", open=True):
         ai_out = gr.Markdown(label="AI Explanation")
