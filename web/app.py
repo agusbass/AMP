@@ -142,37 +142,32 @@ with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
         "Full workflow: [github.com/agusbass/AMP](https://github.com/agusbass/AMP)."
     )
 
+    code_in = gr.Code(
+        label="Your kernel (.cu / .cuh)",
+        language="cpp",
+        value=EXAMPLE_BUGGY_KERNEL,
+        lines=18,
+    )
     with gr.Row():
-        # --- LEFT: input ---
-        with gr.Column(scale=1):
-            code_in = gr.Code(
-                label="Your kernel (.cu / .cuh)",
-                language="cpp",
-                value=EXAMPLE_BUGGY_KERNEL,
-                lines=22,
-            )
-            with gr.Row():
-                clear_btn = gr.Button("Clear (paste your own)", variant="secondary", size="sm")
-                tile_in = gr.Textbox(label="Tile (BM,BN,BK)", value="32,16,32", scale=1)
-            btn = gr.Button("Diagnose", variant="primary")
+        clear_btn = gr.Button("Clear (paste your own)", variant="secondary", size="sm")
+        tile_in = gr.Textbox(label="Tile (BM,BN,BK)", value="32,16,32")
+    btn = gr.Button("Diagnose", variant="primary")
 
-        # --- RIGHT: output ---
-        with gr.Column(scale=1):
-            findings_out = gr.Markdown("_Click Diagnose to see findings._")
-            diff_out = gr.Textbox(
-                label="Suggested fix (unified diff)",
-                lines=8,
-                interactive=False,
-            )
-            with gr.Row():
-                fixed_out = gr.Textbox(
-                    label="Fixed kernel (select all + Ctrl+C to copy)",
-                    lines=12,
-                    interactive=False,
-                )
-            download_btn = gr.DownloadButton("Download fixed kernel (.cuh)", visible=False)
+    findings_out = gr.Markdown("_Click Diagnose to see findings._")
 
-    with gr.Accordion("AI Explanation (powered by Fireworks AI / Llama-3-70B)", open=True):
+    diff_out = gr.Textbox(
+        label="Suggested fix (unified diff)",
+        lines=8,
+        interactive=False,
+    )
+    fixed_out = gr.Textbox(
+        label="Fixed kernel",
+        lines=14,
+        interactive=False,
+    )
+    download_btn = gr.DownloadButton("Download fixed kernel (.cuh)", visible=False)
+
+    with gr.Accordion("AI Explanation (powered by Fireworks AI / DeepSeek-V4-Pro)", open=True):
         ai_out = gr.Markdown("_AI explanation will appear here after diagnosis._")
 
     # wire up buttons
