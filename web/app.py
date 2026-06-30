@@ -163,14 +163,12 @@ with gr.Blocks(title="AMP: CUDA-ROCm Parity Check") as demo:
                 label="Suggested fix (unified diff)",
                 lines=8,
                 interactive=False,
-                show_copy_button=True,
             )
             with gr.Row():
                 fixed_out = gr.Textbox(
-                    label="Fixed kernel",
+                    label="Fixed kernel (select all + Ctrl+C to copy)",
                     lines=12,
                     interactive=False,
-                    show_copy_button=True,
                 )
             download_btn = gr.DownloadButton("Download fixed kernel (.cuh)", visible=False)
 
