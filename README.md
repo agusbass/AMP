@@ -2,13 +2,13 @@
 
 *AMP stands for Accelerator Migration Parity.*
 
-**Validates that your CUDA kernel and its HIP port produce the same numbers, so trying AMD Instinct is a same-day decision instead of a multi-week migration project.**
+**Validates that your CUDA kernel and its HIP port produce the same numbers, so trying AMD Instinct is a same-day decision instead of an open-ended migration project.**
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agusbass/AMP/blob/master/notebooks/quickstart.ipynb)
 [![Try the diagnosis UI](https://img.shields.io/badge/🤗%20Spaces-Try%20it%20live-blue)](https://agusbudiman14-amp-kernel-diagnose.hf.space/)
 
 - **Colab**: real GPU build plus a cross-vendor parity check, right in your browser.
-- **Spaces**: paste a kernel, get a diagnosis and a fix instantly, no GPU needed.
+- **Spaces**: paste a kernel, get a diagnosis, a fix, and a plain-English AI explanation of each finding (powered by Fireworks AI), instantly, no GPU needed.
 
 ```
 Cross-vendor parity: nvidia (Tesla T4) vs amd (MI300X), M=N=K=1024
@@ -22,13 +22,15 @@ tile             A GFLOPS   B GFLOPS  B/A ratio  max_rel_err  status
 ALL TILE CONFIGS CROSS-VENDOR PARITY OK (rel_err < 0.001)
 ```
 
-That's real hardware output, not a mock. Getting here took 15 real bugs
-found and fixed along the way. Full log: [docs/VALIDATION.md](docs/VALIDATION.md).
+That's real hardware output, not a mock. T4 and MI300X are different GPU
+tiers, so the GFLOPS/ratio columns are incidental -- `max_rel_err` is the
+actual claim. Getting here took 15 real bugs found and fixed along the way.
+Full log: [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## What it does
 
 1. **Validate YOUR kernel** (CUDA or HIP) against a CPU reference and a same-shape run from the other vendor.
-2. **Diagnose failures with no GPU.** Static analysis plus a mechanical fix for the bug class that survives "compiles and doesn't crash."
+2. **Diagnose failures with no GPU.** Static analysis plus a mechanical fix for the bug class that survives "compiles and doesn't crash," plus an AI-generated plain-English explanation of why each finding matters (Spaces UI only, via Fireworks AI).
 3. **Check model compatibility** (FlashAttention-2 head_dim/GQA) before you touch hardware at all.
 
 ```
